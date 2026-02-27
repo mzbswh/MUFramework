@@ -18,6 +18,7 @@ namespace MUFramework
         public static Action<LogLevel, string> LogHandler;
         public static Action<string> UIEventHandler;
         public static Func<string, (bool, WindowOpenConfig)> GetWindowOpenConfigFunc;
+        public static Func<string, Type> GetWindowClassTypeFunc;
 
         /// <summary>
         /// 每个UILayer的Sorting Order间隔

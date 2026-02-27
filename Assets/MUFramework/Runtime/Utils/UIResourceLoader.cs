@@ -12,11 +12,11 @@ namespace MUFramework
         /// <summary>
         /// 同步加载资源
         /// </summary>
-        GameObject LoadResource(string windowId);
+        GameObject LoadGameObject(string windowId);
 
         /// <summary>
         /// 异步加载资源
         /// </summary>
-        IEnumerator LoadResourceAsync(string windowId, System.Action<GameObject> callback);
+        IEnumerator LoadGameObjectAsync(string windowId, System.Action<GameObject> callback);
     }
 }

@@ -26,8 +26,8 @@ namespace MUFramework
         /// <summary> Canvas组件 </summary>
         public Canvas Canvas => _stackNode.Canvas;
 
-        /// <summary> 动画辅助器 </summary>
-        public IUIAnimation AnimationHelper => _stackNode.AnimationHelper;
+        /// <summary> 动画 </summary>
+        public IUIAnimation UIAnimation => _stackNode.UIAnimation;
 
         /// <summary> 是否暂停中 </summary>
         public bool IsPause => _stackNode.IsPause;
@@ -64,9 +64,9 @@ namespace MUFramework
         {
             OnBeforeShow();
             SetInteractable(false);
-            if (withAnimation && (AnimationHelper != null))
+            if (withAnimation && (UIAnimation != null))
             {
-                AnimationHelper.PlayOpen(GameObject, OnPlayEnd);
+                UIAnimation.PlayOpen(GameObject, OnPlayEnd);
             }
             else
             {
@@ -112,9 +112,9 @@ namespace MUFramework
         {
             OnBeforeHide();
             SetInteractable(false);
-            if (withAnimation && (AnimationHelper != null))
+            if (withAnimation && (UIAnimation != null))
             {
-                AnimationHelper.PlayClose(GameObject, OnPlayEnd);
+                UIAnimation.PlayClose(GameObject, OnPlayEnd);
             }
             else
             {

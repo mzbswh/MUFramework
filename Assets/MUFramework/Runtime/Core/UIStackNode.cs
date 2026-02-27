@@ -36,10 +36,10 @@ namespace MUFramework
         public Canvas Canvas { get; private set; }
 
         /// <summary> 过期时间(单位：秒) </summary>
-        public long ExpireTime { get; private set; }
+        public double ExpireTime { get; private set; }
 
         /// <summary> 动画辅助器 </summary>
-        public IUIAnimation AnimationHelper { get; private set; }
+        public IUIAnimation UIAnimation { get; private set; }
 
         /// <summary> 是否暂停中 </summary>
         public bool IsPause => State.HasState(UIState.Paused);
@@ -56,6 +56,36 @@ namespace MUFramework
         /// <summary> 是否已关闭 </summary>
         public bool IsClosed => State.HasState(UIState.Closed);
 
+        public UILayer Layer => OpenConfig.Layer;
+        public CacheType CacheType => OpenConfig.CacheType;
+
+        public void Initialize(WindowOpenConfig openConfig, UIWindow window, long uniqueId)
+        {
+            UniqueId = uniqueId;
+            WindowId = openConfig.WindowId;
+            Window = window;
+            OpenConfig = openConfig;
+            State = UIState.None;
+            UIAnimation = openConfig.UIAnimation;
+            ExpireTime = -1;
+            SetState(UIState.Loading);
+        }
+
+        public void SetUniqueId(long uniqueId)
+        {
+            UniqueId = uniqueId;
+        }
+
+        public void AttackGameObject(GameObject obj)
+        {
+            GameObject = obj;
+            Transform = obj.transform;
+            CanvasGroup = obj.GetOrAddComponent<CanvasGroup>();
+            Canvas = obj.GetOrAddComponent<Canvas>();
+            UnsetState(UIState.Loading);
+            SetState(UIState.Loaded);
+        }
+
         public void SetState(UIState state)
         {
             State |= state;
@@ -64,6 +94,17 @@ namespace MUFramework
         public void UnsetState(UIState state)
         {
             State &= ~state;
+        }
+
+        public void SetClosedState()
+        {
+            SetState(UIState.Closed | UIState.Paused | UIState.Hidden);
+            UnsetState(UIState.Closing);
+        }
+
+        public void SetExpireTime(double expireTime)
+        {
+            ExpireTime = expireTime;
         }
 
         public void Dispose()
@@ -76,12 +117,12 @@ namespace MUFramework
             UniqueId = 0;
             WindowId = null;
             Window = null;
-            State = UIState.Closed;
+            State = UIState.None;
             GameObject = null;
             Transform = null;
             CanvasGroup = null;
             Canvas = null;
-            AnimationHelper = null;
+            UIAnimation = null;
             ExpireTime = -1;
         }
     }

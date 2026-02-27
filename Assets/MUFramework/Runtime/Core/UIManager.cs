@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System;
+using Codice.Client.Common.TreeGrouper;
 
 namespace MUFramework
 {
@@ -42,6 +43,9 @@ namespace MUFramework
         /// <summary> UIStackNode对象池 </summary>
         private readonly Stack<UIStackNode> _uiStackNodePool = new();
 
+        /// <summary> 正在进行的异步打开操作列表（按UniqueId索引） </summary>
+        private readonly Dictionary<long, Coroutine> _asyncOpenCoroutines = new();
+
         /// <summary> 资源加载器 </summary>
         public IUIResourceLoader ResourceLoader { get; set; }
 
@@ -78,6 +82,55 @@ namespace MUFramework
             InitializeLayers();
         }
 
+        #region Open Sync
+
+        /// <summary> 打开窗口(同步加载) </summary>
+        public TWindow Open<TWindow>(WindowOpenConfig openConfig, params object[] args) where TWindow : UIWindow
+        {
+            var window = Open(openConfig, args);
+            return window as TWindow;
+        }
+
+        public TWindow Open<TWindow, TArgs1>(WindowOpenConfig openConfig, TArgs1 arg1) where TWindow : UIWindow, IWindowOpenArgs<TArgs1>
+        {
+            var window = Open(openConfig, arg1);
+            var ret = window as TWindow;
+            ret.OnOpen(arg1);
+            return ret;
+        }
+
+        public TWindow Open<TWindow, TArgs1, TArgs2>(WindowOpenConfig openConfig, TArgs1 arg1, TArgs2 arg2) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2>
+        {
+            var window = Open(openConfig, arg1, arg2);
+            var ret = window as TWindow;
+            ret.OnOpen(arg1, arg2);
+            return ret;
+        }
+
+        public TWindow Open<TWindow, TArgs1, TArgs2, TArgs3>(WindowOpenConfig openConfig, TArgs1 arg1, TArgs2 arg2, TArgs3 arg3) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2, TArgs3>
+        {
+            var window = Open(openConfig, arg1, arg2, arg3);
+            var ret = window as TWindow;
+            ret.OnOpen(arg1, arg2, arg3);
+            return ret;
+        }
+
+        public TWindow Open<TWindow, TArgs1, TArgs2, TArgs3, TArgs4>(WindowOpenConfig openConfig, TArgs1 arg1, TArgs2 arg2, TArgs3 arg3, TArgs4 arg4) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2, TArgs3, TArgs4>
+        {
+            var window = Open(openConfig, arg1, arg2, arg3, arg4);
+            var ret = window as TWindow;
+            ret.OnOpen(arg1, arg2, arg3, arg4);
+            return ret;
+        }
+
+        public TWindow Open<TWindow, TArgs1, TArgs2, TArgs3, TArgs4, TArgs5>(WindowOpenConfig openConfig, TArgs1 arg1, TArgs2 arg2, TArgs3 arg3, TArgs4 arg4, TArgs5 arg5) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2, TArgs3, TArgs4, TArgs5>
+        {
+            var window = Open(openConfig, arg1, arg2, arg3, arg4, arg5);
+            var ret = window as TWindow;
+            ret.OnOpen(arg1, arg2, arg3, arg4, arg5);
+            return ret;
+        }
+
         /// <summary> 打开窗口(同步加载) </summary>
         public UIWindow Open(WindowOpenConfig openConfig, params object[] args)
         {
@@ -87,23 +140,155 @@ namespace MUFramework
             if (!HandleDependencies(openConfig)) return null;
             // 检查多实例溢出
             if (!HandleMultiInstance(openConfig)) return null;
-            // 同步加载资源
-            GameObject prefab = ResourceLoader?.LoadResource(openConfig.WindowId);
-            if (prefab == null)
+            // 获取缓存的UI实例
+            UIStackNode node = TryGetCachedUI(openConfig.WindowId);
+            if (node == null)
             {
-                UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"Failed to load window resource: {openConfig.WindowId}");
-                return null;
+                // 同步加载资源
+                GameObject gameObject = ResourceLoader?.LoadGameObject(openConfig.WindowId);
+                if (gameObject == null)
+                {
+                    UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"Failed to load window resource: {openConfig.WindowId}");
+                    return null;
+                }
+                node = CreateUIStackNode(openConfig);
+                node.AttackGameObject(gameObject);
             }
-            return OpenCore(openConfig, prefab, args);
+            node.SetUniqueId(GenerateUniqueId());
+            AddUIStackNode(node);
+            return OpenCore(node, args);
         }
+
+        #endregion Open Sync
+
+        #region Open Async
 
         /// <summary> 打开窗口(异步加载) </summary>
-        public void OpenAsync(WindowOpenConfig openConfig, Action<UIWindow> callback, params object[] args)
+        public long OpenAsync(WindowOpenConfig openConfig, Action<UIWindow> callback, params object[] args)
         {
-            StartCoroutine(OpenAsyncCoroutine(openConfig, callback, args));
+            var uniqueId = GenerateUniqueId();
+            var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, (window) =>
+            {
+                _asyncOpenCoroutines.Remove(uniqueId);
+                callback?.Invoke(window);
+            }, args));
+            _asyncOpenCoroutines[uniqueId] = coroutine;
+            return uniqueId;
         }
 
-        public IEnumerator OpenAsyncCoroutine(WindowOpenConfig openConfig, Action<UIWindow> callback, params object[] args)
+        public long OpenAsync<TWindow>(WindowOpenConfig openConfig, Action<TWindow> callback, params object[] args) where TWindow : UIWindow
+        {
+            var uniqueId = GenerateUniqueId();
+            var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, (window) =>
+            {
+                _asyncOpenCoroutines.Remove(uniqueId);
+                if (window == null)
+                {
+                    callback?.Invoke(null);
+                    return;
+                }
+                callback?.Invoke(window as TWindow);
+            }, args));
+            _asyncOpenCoroutines[uniqueId] = coroutine;
+            return uniqueId;
+        }
+
+        public long OpenAsync<TWindow, TArgs1>(WindowOpenConfig openConfig, Action<TWindow> callback, TArgs1 arg1) where TWindow : UIWindow, IWindowOpenArgs<TArgs1>
+        {
+            var uniqueId = GenerateUniqueId();
+            var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, (window) =>
+            {
+                _asyncOpenCoroutines.Remove(uniqueId);
+                if (window == null)
+                {
+                    callback?.Invoke(null);
+                    return;
+                }
+                var ret = window as TWindow;
+                ret.OnOpen(arg1);
+                callback?.Invoke(ret);
+            }, arg1));
+            _asyncOpenCoroutines[uniqueId] = coroutine;
+            return uniqueId;
+        }
+
+        public long OpenAsync<TWindow, TArgs1, TArgs2>(WindowOpenConfig openConfig, Action<TWindow> callback, TArgs1 arg1, TArgs2 arg2) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2>
+        {
+            var uniqueId = GenerateUniqueId();
+            var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, (window) =>
+            {
+                _asyncOpenCoroutines.Remove(uniqueId);
+                if (window == null)
+                {
+                    callback?.Invoke(null);
+                    return;
+                }
+                var ret = window as TWindow;
+                ret.OnOpen(arg1, arg2);
+                callback?.Invoke(ret);
+            }, arg1, arg2));
+            _asyncOpenCoroutines[uniqueId] = coroutine;
+            return uniqueId;
+        }
+
+        public long OpenAsync<TWindow, TArgs1, TArgs2, TArgs3>(WindowOpenConfig openConfig, Action<TWindow> callback, TArgs1 arg1, TArgs2 arg2, TArgs3 arg3) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2, TArgs3>
+        {
+            var uniqueId = GenerateUniqueId();
+            var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, (window) =>
+            {
+                _asyncOpenCoroutines.Remove(uniqueId);
+                if (window == null)
+                {
+                    callback?.Invoke(null);
+                    return;
+                }
+                var ret = window as TWindow;
+                ret.OnOpen(arg1, arg2, arg3);
+                callback?.Invoke(ret);
+            }, arg1, arg2, arg3));
+            _asyncOpenCoroutines[uniqueId] = coroutine;
+            return uniqueId;
+        }
+
+        public long OpenAsync<TWindow, TArgs1, TArgs2, TArgs3, TArgs4>(WindowOpenConfig openConfig, Action<TWindow> callback, TArgs1 arg1, TArgs2 arg2, TArgs3 arg3, TArgs4 arg4) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2, TArgs3, TArgs4>
+        {
+            var uniqueId = GenerateUniqueId();
+            var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, (window) =>
+            {
+                _asyncOpenCoroutines.Remove(uniqueId);
+                if (window == null)
+                {
+                    callback?.Invoke(null);
+                    return;
+                }
+                var ret = window as TWindow;
+                ret.OnOpen(arg1, arg2, arg3, arg4);
+                callback?.Invoke(ret);
+            }, arg1, arg2, arg3, arg4));
+            _asyncOpenCoroutines[uniqueId] = coroutine;
+            return uniqueId;
+        }
+
+        public long OpenAsync<TWindow, TArgs1, TArgs2, TArgs3, TArgs4, TArgs5>(WindowOpenConfig openConfig, Action<TWindow> callback, TArgs1 arg1, TArgs2 arg2, TArgs3 arg3, TArgs4 arg4, TArgs5 arg5) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2, TArgs3, TArgs4, TArgs5>
+        {
+            var uniqueId = GenerateUniqueId();
+            var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, (window) =>
+            {
+                _asyncOpenCoroutines.Remove(uniqueId);
+                if (window == null)
+                {
+                    callback?.Invoke(null);
+                    return;
+                }
+                var ret = window as TWindow;
+                ret.OnOpen(arg1, arg2, arg3, arg4, arg5);
+                callback?.Invoke(ret);
+            }, arg1, arg2, arg3, arg4, arg5));
+            _asyncOpenCoroutines[uniqueId] = coroutine;
+            return uniqueId;
+        }
+
+        private IEnumerator OpenAsyncCoroutine(WindowOpenConfig openConfig, long uniqueId, Action<UIWindow> callback, params object[] args)
         {
             // 先判断是否到达实例上限且配置为拒绝打开新实例，如果满足则直接返回
             if (!PreCheckMultiInstance(openConfig))
@@ -123,11 +308,30 @@ namespace MUFramework
                 callback?.Invoke(null);
                 yield break;
             }
+            // 获取缓存的UI实例
+            UIStackNode node = TryGetCachedUI(openConfig.WindowId);
+            if (node != null)
+            {
+                // 从缓存中取出实例并打开
+                node.SetUniqueId(uniqueId);
+                AddUIStackNode(node);
+                yield return null; // 等待一帧保证协程添加移除正确
+                callback?.Invoke(OpenCore(node, args));
+                yield break;
+            }
+            node = CreateUIStackNode(openConfig, uniqueId);
+            AddUIStackNode(node);
             // 异步加载资源
             GameObject prefab = null;
             if (ResourceLoader != null)
             {
-                yield return StartCoroutine(ResourceLoader.LoadResourceAsync(openConfig.WindowId, (go) => { prefab = go; }));
+                yield return StartCoroutine(ResourceLoader.LoadGameObjectAsync(openConfig.WindowId, (go) => { prefab = go; }));
+            }
+            // 判断UI是否已被关闭
+            if (!ExistUI(uniqueId))
+            {
+                callback?.Invoke(null);
+                yield break;
             }
             if (prefab == null)
             {
@@ -135,14 +339,11 @@ namespace MUFramework
                 callback?.Invoke(null);
                 yield break;
             }
-            var window = OpenCore(openConfig, prefab, args);
+            var window = OpenCore(node, args);
             callback?.Invoke(window);
         }
 
-
-
-
-
+        #endregion Open Async
 
         public void Close(string windowId, bool closeAllInstances = true, bool withAnimation = true, Action onComplete = null)
         {
@@ -165,6 +366,13 @@ namespace MUFramework
 
         public void Close(long uniqueId, bool withAnimation = true, Action onComplete = null)
         {
+            if (_asyncOpenCoroutines.TryGetValue(uniqueId, out var coroutine))
+            {
+                StopCoroutine(coroutine);
+                _asyncOpenCoroutines.Remove(uniqueId);
+                RemoveUIStackNode(uniqueId);
+                return;
+            }
             var node = GetNode(uniqueId);
             if (node == null) return;
             if (node.IsClosing || node.IsClosed) return;
@@ -173,12 +381,32 @@ namespace MUFramework
             node.Window.Pause();
             node.Window.Hide(withAnimation, () =>
             {
-                node.UnsetState(UIState.Closing);
-                node.SetState(UIState.Closed);
+                node.GameObject.SetActive(false);
+                node.SetClosedState();
                 node.Window.CompleteClose();
                 onComplete?.Invoke();
+                // 判断是否需要缓存
+                switch (node.CacheType)
+                {
+                    case CacheType.Persistent:
+                        AddUIToCache(node);
+                        break;
+                    case CacheType.ExpireTime:
+                        AddUIToCache(node);
+                        node.SetExpireTime(Time.unscaledTimeAsDouble + node.OpenConfig.ExpireTime);
+                        break;
+                    default:
+                        RemoveUIStackNode(node);
+                        break;
+                }
             });
         }
+
+        public bool ExistUI(long uniqueId)
+        {
+            return GetUIStackNode(uniqueId) != null;
+        }
+
 
         /// <summary>
         /// 打开窗口（同步）
@@ -216,7 +444,7 @@ namespace MUFramework
 
             // 加载资源
             string resourcePath = GetResourcePath(windowId);
-            GameObject prefab = ResourceLoader?.LoadResource(resourcePath);
+            GameObject prefab = ResourceLoader?.LoadGameObject(resourcePath);
             if (prefab == null)
             {
                 Debug.LogError($"Failed to load window resource: {resourcePath}");
@@ -323,7 +551,7 @@ namespace MUFramework
             GameObject prefab = null;
             if (ResourceLoader != null)
             {
-                yield return StartCoroutine(ResourceLoader.LoadResourceAsync(resourcePath, (go) => { prefab = go; }));
+                yield return StartCoroutine(ResourceLoader.LoadGameOjbectAsync(resourcePath, (go) => { prefab = go; }));
             }
 
             if (prefab == null)
@@ -573,10 +801,9 @@ namespace MUFramework
         /// <summary>
         /// 获取指定层级的栈
         /// </summary>
-        public UIStack GetStack(UILayer layer)
+        public bool TryGetUILayerStack(UILayer layer, out UIStack stack)
         {
-            _layerStacks.TryGetValue(layer, out var stack);
-            return stack;
+            return _layerStacks.TryGetValue(layer, out stack);
         }
 
         /// <summary>
@@ -650,22 +877,42 @@ namespace MUFramework
         /// <summary> 添加UIStackNode </summary>
         private void AddUIStackNode(UIStackNode node)
         {
+            if (node == null) return;
             if (!_windowInstances.ContainsKey(node.WindowId))
             {
                 _windowInstances[node.WindowId] = new List<UIStackNode>();
             }
             _windowInstances[node.WindowId].Add(node);
             _allWindows[node.UniqueId] = node;
+            if (TryGetUILayerStack(node.Layer, out var stack))
+            {
+                stack.Push(node);
+            }
+        }
+
+        private void RemoveUIStackNode(long uniqueId, bool recycle = true)
+        {
+            var node = GetUIStackNode(uniqueId);
+            RemoveUIStackNode(node, recycle);
         }
 
         /// <summary> 移除UIStackNode </summary>
-        private void RemoveUIStackNode(UIStackNode node)
+        private void RemoveUIStackNode(UIStackNode node, bool recycle = true)
         {
+            if (node == null) return;
             if (_windowInstances.TryGetValue(node.WindowId, out var nodes))
             {
                 nodes.Remove(node);
             }
             _allWindows.Remove(node.UniqueId);
+            if (TryGetUILayerStack(node.Layer, out var stack))
+            {
+                stack.Remove(node.UniqueId);
+            }
+            if (recycle)
+            {
+                RecycleUIStackNode(node);
+            }
         }
 
         /// <summary> 获取窗口实例数量 </summary>
@@ -690,6 +937,50 @@ namespace MUFramework
             return _allWindows.TryGetValue(uniqueId, out var node) ? node : null;
         }
 
+        /// <summary> 创建UIStackNode </summary>
+        private UIStackNode CreateUIStackNode(WindowOpenConfig openConfig, long uniqueId = -1)
+        {
+            UIStackNode node = GetNewUIStackNode();
+            var window = CreateUIWindow(openConfig.WindowId);
+            if (uniqueId < 0)
+            {
+                uniqueId = GenerateUniqueId();
+            }
+            node.Initialize(openConfig, window, uniqueId);
+            return node;
+        }
+
+        /// <summary> 创建UIWindow实例 </summary>
+        private UIWindow CreateUIWindow(string windowId)
+        {
+            var type = UIGlobal.GetWindowClassTypeFunc?.Invoke(windowId);
+            if (type == null)
+            {
+                UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"[MUI], GetWindowClassTypeFunc returned null for windowId: {windowId}");
+                return null;
+            }
+            if (type.IsAbstract || !typeof(UIWindow).IsAssignableFrom(type))
+            {
+                UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"[MUI], Invalid window class type for windowId: {windowId}, type: {type}");
+                return null;
+            }
+            UIWindow window = (UIWindow)Activator.CreateInstance(type);
+            return window;
+        }
+
+        /// <summary> 添加UI界面到缓存 </summary>
+        private void AddUIToCache(UIStackNode node)
+        {
+            if (node == null) return;
+            if (!_cachedUI.TryGetValue(node.WindowId, out var nodes))
+            {
+                nodes = new Stack<UIStackNode>();
+                _cachedUI[node.WindowId] = nodes;
+            }
+            nodes.Push(node);
+            RemoveUIStackNode(node, recycle: false);    // 移除但不回收
+        }
+
         /// <summary> 获取缓存的UI界面 </summary>
         private UIStackNode TryGetCachedUI(string windowId)
         {
@@ -709,7 +1000,7 @@ namespace MUFramework
         }
 
         /// <summary> 获取UIStackNode </summary>
-        private UIStackNode GetUIStackNode()
+        private UIStackNode GetNewUIStackNode()
         {
             if (_uiStackNodePool.Count > 0)
             {
@@ -847,16 +1138,17 @@ namespace MUFramework
         }
 
         /// <summary> 打开界面核心方法 </summary>
-        private UIWindow OpenCore(WindowOpenConfig openConfig, GameObject obj, UIStackNode cachedUI, params object[] args)
+        private UIWindow OpenCore(UIStackNode node, params object[] args)
         {
             // 获取目标层级
-            UILayer targetLayer = openConfig.Layer;
+            UILayer targetLayer = node.OpenConfig.Layer;
             if (!_layerStacks.TryGetValue(targetLayer, out var stack))
             {
                 UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"[MUI], OpenCore failed, target layer {targetLayer} stack not found");
                 return null;
             }
             // 设置父对象
+            var obj = node.GameObject;
             obj.transform.SetParent(stack.Root.transform, false);
             obj.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             obj.transform.localScale = Vector3.one;

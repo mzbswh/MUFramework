@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using PlasticGui.WorkspaceWindow;
 using UnityEngine;
 
 namespace MUFramework
@@ -77,24 +78,18 @@ namespace MUFramework
         /// </summary>
         public UIStackNode Pop()
         {
-            if (_stack.Count == 0)
-                return null;
-
+            if (_stack.Count == 0) return null;
             var node = _stack[_stack.Count - 1];
-            _stack.RemoveAt(_stack.Count - 1);
-            _nodeDict.Remove(node.UniqueId);
+            Remove(node.UniqueId);
             return node;
         }
 
         /// <summary>
         /// 移除指定节点
         /// </summary>
-        public bool Remove(string uniqueId)
+        public bool Remove(long uniqueId)
         {
-            if (string.IsNullOrEmpty(uniqueId) || !_nodeDict.ContainsKey(uniqueId))
-                return false;
-
-            var node = _nodeDict[uniqueId];
+            if (!_nodeDict.TryGetValue(uniqueId, out var node)) return false;
             _stack.Remove(node);
             _nodeDict.Remove(uniqueId);
             return true;
@@ -105,9 +100,7 @@ namespace MUFramework
         /// </summary>
         public bool Remove(UIStackNode node)
         {
-            if (node == null || string.IsNullOrEmpty(node.UniqueId))
-                return false;
-
+            if (node == null) return false;
             return Remove(node.UniqueId);
         }
 
@@ -116,18 +109,14 @@ namespace MUFramework
         /// </summary>
         public void Insert(int index, UIStackNode node)
         {
-            if (node == null || string.IsNullOrEmpty(node.UniqueId))
-                return;
+            if (node == null) return;
 
-            if (index < 0 || index > _stack.Count)
-                index = _stack.Count;
-
-            if (_nodeDict.ContainsKey(node.UniqueId))
+            if (index < 0 || index > _stack.Count) index = _stack.Count;
+            if (_nodeDict.TryGetValue(node.UniqueId, out var existingNode))
             {
                 // 如果已存在，先移除
-                Remove(node.UniqueId);
+                Remove(existingNode.UniqueId);
             }
-
             _stack.Insert(index, node);
             _nodeDict[node.UniqueId] = node;
         }
@@ -135,23 +124,16 @@ namespace MUFramework
         /// <summary>
         /// 获取指定节点
         /// </summary>
-        public UIStackNode Get(string uniqueId)
+        public UIStackNode TryGetNode(long uniqueId, out UIStackNode node)
         {
-            if (string.IsNullOrEmpty(uniqueId))
-                return null;
-
-            _nodeDict.TryGetValue(uniqueId, out var node);
-            return node;
+            return _nodeDict.TryGetValue(uniqueId, out node) ? node : null;
         }
 
         /// <summary>
         /// 检查节点是否存在
         /// </summary>
-        public bool Contains(string uniqueId)
+        public bool Contains(long uniqueId)
         {
-            if (string.IsNullOrEmpty(uniqueId))
-                return false;
-
             return _nodeDict.ContainsKey(uniqueId);
         }
 
@@ -163,15 +145,28 @@ namespace MUFramework
             return new List<UIStackNode>(_stack);
         }
 
-        /// <summary>
-        /// 获取指定类型的最上层节点（跳过Overlay类型）
-        /// </summary>
-        public UIStackNode GetTopNormalNode()
+        public void GetAllNodes(List<UIStackNode> result)
         {
+            result.Clear();
+            result.AddRange(_stack);
+        }
+
+        /// <summary>
+        /// 获取最上层节点
+        /// </summary>
+        public UIStackNode GetTopNode(bool skipCoveredCheck = false)
+        {
+            if (_stack.Count == 0) return null;
+            if (!skipCoveredCheck)
+            {
+                return _stack[^1];
+            }
             for (int i = _stack.Count - 1; i >= 0; i--)
             {
-                if (_stack[i].Type == WindowType.Normal)
-                    return _stack[i];
+                if (_stack[i].OpenConfig.WindowAttr != WindowAttr.SkipCoveredCheck)
+                { 
+                    return _stack[i]; 
+                }
             }
             return null;
         }
@@ -183,32 +178,6 @@ namespace MUFramework
         {
             _stack.Clear();
             _nodeDict.Clear();
-        }
-
-        /// <summary>
-        /// 获取指定节点的索引
-        /// </summary>
-        public int IndexOf(string uniqueId)
-        {
-            if (string.IsNullOrEmpty(uniqueId))
-                return -1;
-
-            var node = Get(uniqueId);
-            if (node == null)
-                return -1;
-
-            return _stack.IndexOf(node);
-        }
-
-        /// <summary>
-        /// 获取指定索引的节点
-        /// </summary>
-        public UIStackNode GetAt(int index)
-        {
-            if (index < 0 || index >= _stack.Count)
-                return null;
-
-            return _stack[index];
         }
     }
 }

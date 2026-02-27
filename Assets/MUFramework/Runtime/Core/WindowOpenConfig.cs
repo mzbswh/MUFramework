@@ -46,6 +46,9 @@ namespace MUFramework
         /// <summary> 过期时间(当CacheType为ExpireTime时生效，单位：秒) </summary>
         public float ExpireTime;
 
+        /// <summary> UI动画 </summary>
+        public IUIAnimation UIAnimation;
+
         public static WindowOpenConfig Default => new WindowOpenConfig
         {
             AllowMultiInstance = false,
@@ -60,6 +63,7 @@ namespace MUFramework
             AllowOverrideWhenCovered = true,
             CacheType = CacheType.None,
             ExpireTime = 0f,
+            UIAnimation = null,
         };
     }
 }
