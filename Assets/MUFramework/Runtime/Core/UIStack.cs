@@ -81,7 +81,7 @@ namespace MUFramework
         {
             if (_stack.Count == 0) return null;
             var node = _stack[_stack.Count - 1];
-            Remove(node.UniqueId);
+            Remove(node.UniqueId, false);
             return node;
         }
 
