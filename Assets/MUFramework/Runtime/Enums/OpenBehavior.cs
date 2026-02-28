@@ -7,7 +7,7 @@ namespace MUFramework
         KeepBelow,
 
         /// <summary> 暂停(当前界面打开时，下面界面暂停) </summary>
-        PauseBleow,
+        PauseBelow,
 
         /// <summary> 隐藏(当前界面打开时，下面界面隐藏) </summary>
         HideBelow,

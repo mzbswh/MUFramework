@@ -6,9 +6,9 @@ namespace MUFramework
     public enum CoverdBehavior
     {
         /// <summary>
-        /// 保持当前状态
+        /// 保持正常显示状态（不暂停也不隐藏）
         /// </summary>
-        Keep,
+        Normal,
 
         /// <summary>
         /// 暂停

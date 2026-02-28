@@ -112,6 +112,7 @@ namespace MUFramework
         public void Resume()
         {
             if (!IsPause) return;
+            _stackNode.UnsetState(UIState.Paused);
             OnResume();
         }
 
@@ -132,6 +133,7 @@ namespace MUFramework
         public void Pause()
         {
             if (IsPause) return;
+            _stackNode.SetState(UIState.Paused);
             OnPause();
         }
 
@@ -188,13 +190,13 @@ namespace MUFramework
         /// <summary> 恢复时调用 </summary>
         protected virtual void OnResume() { }
         /// <summary> 未被覆盖时调用 </summary>
-        protected virtual void OnUncover() { }
+        internal virtual void OnUncover() { }
         /// <summary> 更新时调用 </summary>
         protected virtual void OnUpdate(float deltaTime) { }
         /// <summary> 每秒更新时调用(通用逻辑) </summary>
         protected virtual void OnUpdatePerSecond() { }
         /// <summary> 被覆盖时调用 </summary>
-        protected virtual void OnCovered() { }
+        internal virtual void OnCovere() { }
         /// <summary> 暂停时调用 </summary>
         protected virtual void OnPause() { }
         /// <summary> 隐藏前调用(如果有动画，则动画播放前调用) </summary>

@@ -25,7 +25,7 @@ namespace MUFramework
         public UILayer Layer { get; private set; }
 
         /// <summary> 根GameObject </summary>
-        public GameObject Root { get; set; }
+        public GameObject Root { get; private set; }
 
         /// <summary> 栈中节点数量 </summary>
         public int Count => _stack.Count;
@@ -72,6 +72,7 @@ namespace MUFramework
             _stack.Add(node);
             _nodeDict[node.UniqueId] = node;
             node.SetOrder(_stack.Count * UIGlobal.InLayerSortingOrderInterval);
+            UpdateAllStackNode();
         }
 
         /// <summary>
@@ -97,14 +98,15 @@ namespace MUFramework
         /// <summary>
         /// 移除指定节点
         /// </summary>
-        public bool Remove(long uniqueId, bool recaculateSortingOrder = true)
+        public bool Remove(long uniqueId, bool recaculate = true)
         {
             if (!_nodeDict.TryGetValue(uniqueId, out var node)) return false;
             _stack.Remove(node);
             _nodeDict.Remove(uniqueId);
-            if (recaculateSortingOrder)
+            if (recaculate)
             {
                 RecaculateSortingOrder();
+                UpdateAllStackNode();
             }
             return true;
         }
@@ -125,6 +127,7 @@ namespace MUFramework
             _stack.Insert(index, node);
             _nodeDict[node.UniqueId] = node;
             RecaculateSortingOrder();
+            UpdateAllStackNode();
         }
 
         /// <summary>
@@ -146,9 +149,9 @@ namespace MUFramework
         /// <summary>
         /// 获取所有节点（按栈顺序）
         /// </summary>
-        public List<UIStackNode> GetAllNodes()
+        public IReadOnlyList<UIStackNode> GetAllNodes()
         {
-            return new List<UIStackNode>(_stack);
+            return _stack;
         }
 
         public void GetAllNodes(List<UIStackNode> result)
@@ -191,6 +194,49 @@ namespace MUFramework
             for (int i = 0; i < _stack.Count; i++)
             {
                 _stack[i].SetOrder(i * UIGlobal.InLayerSortingOrderInterval);
+            }
+        }
+
+        private void UpdateAllStackNode()
+        {
+            int coverLevel = 0; // 0=Keep, 1=Pause, 2=Hide
+            bool coverd = false;
+            for (int i = _stack.Count - 1; i >= 0; i--)
+            {
+                var node = _stack[i];
+                if (node.IsClosing || node.IsClosed) continue;
+                if (node.OpenConfig.WindowAttr.HasFlag(WindowAttr.SkipCoveredCheck)) continue;
+
+                node.SetCover(coverd);
+                // 取上方累积的 coverLevel 与自身 WhenCovered 的最大值
+                CoverdBehavior finalCoverBehavior = coverLevel > (int)node.OpenConfig.WhenCovered ? (CoverdBehavior)coverLevel : node.OpenConfig.WhenCovered;
+                switch (finalCoverBehavior)
+                {
+                    case CoverdBehavior.Normal:
+                    {
+                        node.SetHide(false);
+                        node.SetPause(false);
+                        break;
+                    }
+                    case CoverdBehavior.Pause:
+                    {
+                        node.SetHide(false);
+                        node.SetPause(true);
+                        break;
+                    }
+                    case CoverdBehavior.Hide:
+                    {
+                        node.SetPause(true);
+                        node.SetHide(true);
+                        break;
+                    }
+                }
+                // 累积当前节点的 OpenBehavior，影响更下方节点
+                if ((int)node.OpenConfig.OpenBehavior > coverLevel)
+                {
+                    coverLevel = (int)node.OpenConfig.OpenBehavior;
+                }
+                coverd = false; // 除了第一个，下面的都是Coverd状态
             }
         }
     }

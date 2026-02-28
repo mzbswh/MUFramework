@@ -56,8 +56,15 @@ namespace MUFramework
         /// <summary> 是否已关闭 </summary>
         public bool IsClosed => State.HasState(UIState.Closed);
 
+        /// <summary> 是否正在加载中 </summary>
+        public bool IsLoading => State.HasState(UIState.Loading);
+
+        /// <summary> 是否正在加载完成了 </summary>
+        public bool IsLoaded => State.HasState(UIState.Loaded);
+
         public UILayer Layer => OpenConfig.Layer;
         public CacheType CacheType => OpenConfig.CacheType;
+        public WindowAttr WindowAttr => OpenConfig.WindowAttr;
 
         public void Initialize(WindowOpenConfig openConfig, UIWindow window, long uniqueId)
         {
@@ -100,6 +107,69 @@ namespace MUFramework
         {
             SetState(UIState.Closed | UIState.Paused | UIState.Hidden);
             UnsetState(UIState.Closing);
+        }
+
+        public void SetCover(bool cover)
+        {
+            if (IsCovered == cover) return;
+            if (cover)
+            {
+                SetState(UIState.Covered);
+                if (IsLoaded)
+                {
+                    Window.OnCovere();
+                }
+            }
+            else
+            {
+                UnsetState(UIState.Covered);
+                if (IsLoaded)
+                {
+                    Window.OnUncover();
+                }
+            }
+        }
+
+        public void SetHide(bool hide)
+        {
+            if (IsHidden == hide) return;
+            if (hide)
+            {
+                SetState(UIState.Hidden);
+                if (IsLoaded)
+                {
+                    Window.Hide();
+                }
+            }
+            else
+            {
+                UnsetState(UIState.Hidden);
+                if (IsLoaded)
+                {
+                    Window.Show();
+                }
+            }
+        }
+
+        public void SetPause(bool pause)
+        {
+            if (IsPause == pause) return;
+            if (pause)
+            {
+                SetState(UIState.Paused);
+                if (IsLoaded)
+                {
+                    Window.Pause();
+                }
+            }
+            else
+            {
+                UnsetState(UIState.Paused);
+                if (IsLoaded)
+                {
+                    Window.Resume();
+                }
+            }
         }
 
         public void SetExpireTime(double expireTime)

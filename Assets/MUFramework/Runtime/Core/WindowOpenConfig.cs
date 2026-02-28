@@ -37,9 +37,6 @@ namespace MUFramework
         /// <summary> 界面打开行为（如全屏界面打开时，隐藏下面界面） </summary>
         public OpenBehavior OpenBehavior;
 
-        /// <summary> 是否允许其他界面的开启行为影响当前界面被覆盖行为 </summary>
-        public bool AllowOverrideWhenCovered;
-
         /// <summary> 缓存类型 </summary>
         public CacheType CacheType;
 
@@ -58,9 +55,8 @@ namespace MUFramework
             DependencyMissingPolicy = DependencyMissingPolicy.OpenAnyway,
             Layer = UILayer.Default,
             WindowAttr = WindowAttr.None,
-            WhenCovered = CoverdBehavior.Keep,
+            WhenCovered = CoverdBehavior.Normal,
             OpenBehavior = OpenBehavior.KeepBelow,
-            AllowOverrideWhenCovered = true,
             CacheType = CacheType.None,
             ExpireTime = 0f,
             UIAnimation = null,

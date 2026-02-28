@@ -7,9 +7,9 @@ namespace MUFramework
     public enum WindowAttr
     {
         /// <summary> 无属性 </summary>
-        None = 1 << 0,
+        None = 0,
 
-        /// <summary> 不参与覆盖检查（如跑马灯消息界面） </summary>
-        SkipCoveredCheck = 1 << 1,
+        /// <summary> 不参与是否覆盖下层检查（如跑马灯消息界面） </summary>
+        SkipCoveredCheck = 1 << 0,
     }
 }

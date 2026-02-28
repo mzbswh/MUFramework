@@ -325,10 +325,10 @@ namespace MUFramework
             node = CreateUIStackNode(openConfig, uniqueId);
             AddUIStackNode(node);
             // 异步加载资源
-            GameObject prefab = null;
+            GameObject obj = null;
             if (_resourceLoader != null)
             {
-                yield return StartCoroutine(_resourceLoader.LoadGameObjectAsync(openConfig.WindowId, (go) => { prefab = go; }));
+                yield return StartCoroutine(_resourceLoader.LoadGameObjectAsync(openConfig.WindowId, (go) => { obj = go; }));
             }
             // 判断UI是否已被关闭
             if (!ExistUI(uniqueId))
@@ -336,12 +336,13 @@ namespace MUFramework
                 callback?.Invoke(null);
                 yield break;
             }
-            if (prefab == null)
+            if (obj == null)
             {
                 UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"Failed to load window resource async: {openConfig.WindowId}");
                 callback?.Invoke(null);
                 yield break;
             }
+            node.AttackGameObject(obj);
             var window = OpenCore(node, args);
             callback?.Invoke(window);
         }
@@ -812,6 +813,14 @@ namespace MUFramework
             if (!node.IsHidden)
             {
                 node.Window.Show();
+            }
+            if (node.IsPause)
+            {
+                node.Window.Pause();
+            }
+            if (node.IsCovered)
+            {
+                node.Window.OnCovere();
             }
             return node.Window;
         }
