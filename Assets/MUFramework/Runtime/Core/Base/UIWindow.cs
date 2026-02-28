@@ -48,10 +48,14 @@ namespace MUFramework
         private readonly List<UIWidget> _widgets = new();
 
         private UIStackNode _stackNode;
+        private bool _hasCreated = false;
+        private long _animUniqueId;
 
         public void Init(UIStackNode stackNode)
         {
             _stackNode = stackNode;
+            if (_hasCreated) return;
+            _hasCreated = true;
             OnCreate();
         }
 
@@ -60,13 +64,14 @@ namespace MUFramework
             OnOpen(args);
         }
 
-        public void Show(bool withAnimation = false, Action onComplete = null)
+        public void Show(bool withAnimation = true, Action onComplete = null)
         {
             OnBeforeShow();
             SetInteractable(false);
             if (withAnimation && (UIAnimation != null))
             {
-                UIAnimation.PlayOpen(GameObject, OnPlayEnd);
+                UIAnimation.Stop(_animUniqueId);
+                _animUniqueId = UIAnimation.PlayOpen(GameObject, OnPlayEnd);
             }
             else
             {
@@ -78,6 +83,28 @@ namespace MUFramework
                 SetInteractable(true);
                 GameObject.SetActive(true);
                 OnShow();
+                onComplete?.Invoke();
+            }
+        }
+
+        public void Hide(bool withAnimation = true, Action onComplete = null)
+        {
+            OnBeforeHide();
+            SetInteractable(false);
+            if (withAnimation && (UIAnimation != null))
+            {
+                UIAnimation.Stop(_animUniqueId);
+                _animUniqueId = UIAnimation.PlayClose(GameObject, OnPlayEnd);
+            }
+            else
+            {
+                OnPlayEnd();
+            }
+
+            void OnPlayEnd()
+            {
+                GameObject.SetActive(false);
+                OnHide();
                 onComplete?.Invoke();
             }
         }
@@ -106,27 +133,6 @@ namespace MUFramework
         {
             if (IsPause) return;
             OnPause();
-        }
-
-        public void Hide(bool withAnimation = true, Action onComplete = null)
-        {
-            OnBeforeHide();
-            SetInteractable(false);
-            if (withAnimation && (UIAnimation != null))
-            {
-                UIAnimation.PlayClose(GameObject, OnPlayEnd);
-            }
-            else
-            {
-                OnPlayEnd();
-            }
-
-            void OnPlayEnd()
-            {
-                GameObject.SetActive(false);
-                OnHide();
-                onComplete?.Invoke();
-            }
         }
 
         public void Destroy()

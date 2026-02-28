@@ -12,12 +12,17 @@ namespace MUFramework
         /// <summary>
         /// 播放打开动画
         /// </summary>
-        void PlayOpen(GameObject target, Action completeCallback);
+        long PlayOpen(GameObject target, Action completeCallback);
 
         /// <summary>
         /// 播放关闭动画
         /// </summary>
-        void PlayClose(GameObject target, Action completeCallback);
+        long PlayClose(GameObject target, Action completeCallback);
+
+        /// <summary>
+        /// 停止播放动画
+        /// </summary>
+        void Stop(long id);
     }
 
     /// <summary>
@@ -25,14 +30,21 @@ namespace MUFramework
     /// </summary>
     public class DefaultUIAnimation : IUIAnimation
     {
-        public void PlayOpen(GameObject target, Action completeCallback)
+        public long PlayOpen(GameObject target, Action completeCallback)
         {
             completeCallback?.Invoke();
+            return 0;
         }
 
-        public void PlayClose(GameObject target, Action completeCallback)
+        public long PlayClose(GameObject target, Action completeCallback)
         {
             completeCallback?.Invoke();
+            return 0;
+        }
+
+        public void Stop(long id)
+        {
+            
         }
     }
 }

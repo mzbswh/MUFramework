@@ -71,6 +71,7 @@ namespace MUFramework
 
             _stack.Add(node);
             _nodeDict[node.UniqueId] = node;
+            node.SetOrder(_stack.Count * UIGlobal.InLayerSortingOrderInterval);
         }
 
         /// <summary>
@@ -87,21 +88,25 @@ namespace MUFramework
         /// <summary>
         /// 移除指定节点
         /// </summary>
-        public bool Remove(long uniqueId)
+        public bool Remove(UIStackNode node)
         {
-            if (!_nodeDict.TryGetValue(uniqueId, out var node)) return false;
-            _stack.Remove(node);
-            _nodeDict.Remove(uniqueId);
-            return true;
+            if (node == null) return false;
+            return Remove(node.UniqueId);
         }
 
         /// <summary>
         /// 移除指定节点
         /// </summary>
-        public bool Remove(UIStackNode node)
+        public bool Remove(long uniqueId, bool recaculateSortingOrder = true)
         {
-            if (node == null) return false;
-            return Remove(node.UniqueId);
+            if (!_nodeDict.TryGetValue(uniqueId, out var node)) return false;
+            _stack.Remove(node);
+            _nodeDict.Remove(uniqueId);
+            if (recaculateSortingOrder)
+            {
+                RecaculateSortingOrder();
+            }
+            return true;
         }
 
         /// <summary>
@@ -115,10 +120,11 @@ namespace MUFramework
             if (_nodeDict.TryGetValue(node.UniqueId, out var existingNode))
             {
                 // 如果已存在，先移除
-                Remove(existingNode.UniqueId);
+                Remove(existingNode.UniqueId, false);
             }
             _stack.Insert(index, node);
             _nodeDict[node.UniqueId] = node;
+            RecaculateSortingOrder();
         }
 
         /// <summary>
@@ -164,8 +170,8 @@ namespace MUFramework
             for (int i = _stack.Count - 1; i >= 0; i--)
             {
                 if (_stack[i].OpenConfig.WindowAttr != WindowAttr.SkipCoveredCheck)
-                { 
-                    return _stack[i]; 
+                {
+                    return _stack[i];
                 }
             }
             return null;
@@ -178,6 +184,14 @@ namespace MUFramework
         {
             _stack.Clear();
             _nodeDict.Clear();
+        }
+
+        private void RecaculateSortingOrder()
+        {
+            for (int i = 0; i < _stack.Count; i++)
+            {
+                _stack[i].SetOrder(i * UIGlobal.InLayerSortingOrderInterval);
+            }
         }
     }
 }

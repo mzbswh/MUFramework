@@ -66,7 +66,7 @@ namespace MUFramework
             Window = window;
             OpenConfig = openConfig;
             State = UIState.None;
-            UIAnimation = openConfig.UIAnimation;
+            UIAnimation = openConfig.UIAnimation ?? UIGlobal.DefaultAnimation;
             ExpireTime = -1;
             SetState(UIState.Loading);
         }
@@ -105,6 +105,11 @@ namespace MUFramework
         public void SetExpireTime(double expireTime)
         {
             ExpireTime = expireTime;
+        }
+
+        public void SetOrder(int order)
+        {
+            Canvas.sortingOrder = order;
         }
 
         public void Dispose()

@@ -28,6 +28,9 @@ namespace MUFramework
             }
         }
 
+        public Camera UICamera { get; private set; }
+        public Transform CanvasRoot { get; private set; }
+
         /// <summary> 所有层级的栈管理 </summary>
         private readonly Dictionary<UILayer, UIStack> _layerStacks = new();
 
@@ -46,14 +49,13 @@ namespace MUFramework
         /// <summary> 正在进行的异步打开操作列表（按UniqueId索引） </summary>
         private readonly Dictionary<long, Coroutine> _asyncOpenCoroutines = new();
 
+        private UILayer[] _uiLayers;
+
         /// <summary> 资源加载器 </summary>
-        public IUIResourceLoader ResourceLoader { get; set; }
+        private IUIResourceLoader _resourceLoader;
 
         /// <summary> 是否已初始化 </summary>
         private bool _isInitialized = false;
-
-        /// <summary> 根Canvas </summary>
-        private Transform _canvasRoot;
 
         private List<string> _stringListCache = new();  // 字符串列表缓存
 
@@ -73,13 +75,14 @@ namespace MUFramework
         }
 
         /// <summary> 初始化UIManager </summary>
-        public void Initialize(Transform canvasRoot)
+        public void Initialize()
         {
             if (_isInitialized) return;
             _isInitialized = true;
-            _canvasRoot = canvasRoot;
-            // 初始化所有层级
+            CreatUICamera();
+            CreateCanvasRoot();
             InitializeLayers();
+            CreateEventSystem();
         }
 
         #region Open Sync
@@ -145,7 +148,7 @@ namespace MUFramework
             if (node == null)
             {
                 // 同步加载资源
-                GameObject gameObject = ResourceLoader?.LoadGameObject(openConfig.WindowId);
+                GameObject gameObject = _resourceLoader?.LoadGameObject(openConfig.WindowId);
                 if (gameObject == null)
                 {
                     UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"Failed to load window resource: {openConfig.WindowId}");
@@ -323,9 +326,9 @@ namespace MUFramework
             AddUIStackNode(node);
             // 异步加载资源
             GameObject prefab = null;
-            if (ResourceLoader != null)
+            if (_resourceLoader != null)
             {
-                yield return StartCoroutine(ResourceLoader.LoadGameObjectAsync(openConfig.WindowId, (go) => { prefab = go; }));
+                yield return StartCoroutine(_resourceLoader.LoadGameObjectAsync(openConfig.WindowId, (go) => { prefab = go; }));
             }
             // 判断UI是否已被关闭
             if (!ExistUI(uniqueId))
@@ -373,7 +376,7 @@ namespace MUFramework
                 RemoveUIStackNode(uniqueId);
                 return;
             }
-            var node = GetNode(uniqueId);
+            var node = GetUIStackNode(uniqueId);
             if (node == null) return;
             if (node.IsClosing || node.IsClosed) return;
             node.SetState(UIState.Closing);
@@ -402,442 +405,39 @@ namespace MUFramework
             });
         }
 
+        /// <summary> 判断UI是否存在（即是否在栈中）（注意：异步加载完成前只是占位） </summary>
         public bool ExistUI(long uniqueId)
         {
             return GetUIStackNode(uniqueId) != null;
         }
 
-
-        /// <summary>
-        /// 打开窗口（同步）
-        /// </summary>
-        public UIWindow OpenWindow(Type windowType, string windowId, UILayer? layer = null, string parentId = null, bool useAnimation = false, OverlayConfig? overlayConfig = null)
+        /// <summary> 判断UI是否存在（即是否在栈中）（注意：异步加载完成前只是占位） </summary>
+        public bool ExistUI(string windowId)
         {
-            // 获取配置
-            WindowConfig config = GetConfig(windowId);
-
-            // 确定层级
-            UILayer targetLayer = layer ?? (config?.DefaultLayer ?? UILayer.Default);
-
-            // 检查依赖
-            if (config != null && config.Dependencies != null && config.Dependencies.Count > 0)
-            {
-                foreach (var depId in config.Dependencies)
-                {
-                    if (!IsWindowOpen(depId))
-                    {
-                        // 打开依赖窗口（使用默认参数）
-                        Debug.LogWarning($"Window {windowId} depends on {depId}, opening dependency first");
-                        // 这里需要根据实际情况实现依赖窗口的打开逻辑
-                    }
-                }
-            }
-
-            // 检查多实例
-            if (!CheckMultiInstance(windowId, config))
-            {
-                return null;
-            }
-
-            // 生成唯一ID
-            string uniqueId = GenerateUniqueId(windowId);
-
-            // 加载资源
-            string resourcePath = GetResourcePath(windowId);
-            GameObject prefab = ResourceLoader?.LoadGameObject(resourcePath);
-            if (prefab == null)
-            {
-                Debug.LogError($"Failed to load window resource: {resourcePath}");
-                return null;
-            }
-
-            // 实例化
-            GameObject instance = Instantiate(prefab, _layerCanvases[targetLayer].transform);
-            UIWindow window = instance.GetComponent<UIWindow>();
-            if (window == null)
-            {
-                window = instance.AddComponent(windowType) as UIWindow;
-            }
-
-            // 设置窗口属性
-            window.UniqueId = uniqueId;
-            window.WindowId = windowId;
-            window.Layer = targetLayer;
-            window.UseAnimation = useAnimation;
-
-            // 创建栈节点
-            UIStackNode node = new UIStackNode
-            {
-                UniqueId = uniqueId,
-                Window = window,
-                State = UIState.Hidden,
-                Type = config?.WindowType ?? WindowType.Normal,
-                WhenCovered = config?.DefaultCoverBehavior ?? CoverBehavior.KeepRunning,
-                AllowOverrideCoverBehavior = config?.AllowOverrideCoverBehavior ?? true,
-                ParentId = parentId,
-                KeepBelowVisible = false,
-                PauseBelowUpdate = false
-            };
-
-            // 处理界面绑定
-            if (!string.IsNullOrEmpty(parentId))
-            {
-                var parentNode = GetNode(parentId);
-                if (parentNode != null)
-                {
-                    parentNode.ChildrenIds.Add(uniqueId);
-                }
-            }
-
-            // 推入栈
-            _layerStacks[targetLayer].Push(node);
-            _allWindows[uniqueId] = node;
-
-            // 更新状态
-            UpdateWindowStates(targetLayer);
-
-            // 调用生命周期
-            window.OnCreate();
-            window.OnShow();
-            window.OnResume();
-
-            return window;
+            var nodes = GetUIStackNodes(windowId);
+            return (nodes != null) && (nodes.Count > 0);
         }
 
-        /// <summary>
-        /// 打开窗口（异步）
-        /// </summary>
-        public void OpenWindowAsync<T>(string windowId, UILayer? layer = null, string parentId = null, bool useAnimation = false, OverlayConfig overlayConfig = null, Action<UIWindow> callback = null) where T : UIWindow
-        {
-            StartCoroutine(OpenWindowAsyncCoroutine(typeof(T), windowId, layer, parentId, useAnimation, overlayConfig, callback));
-        }
-
-        /// <summary>
-        /// 打开窗口异步协程
-        /// </summary>
-        private IEnumerator OpenWindowAsyncCoroutine(Type windowType, string windowId, UILayer? layer, string parentId, bool useAnimation, OverlayConfig overlayConfig, Action<UIWindow> callback)
-        {
-            // 获取配置
-            WindowConfig config = GetConfig(windowId);
-
-            // 确定层级
-            UILayer targetLayer = layer ?? (config?.DefaultLayer ?? UILayer.Default);
-
-            // 检查依赖
-            if (config != null && config.Dependencies != null && config.Dependencies.Count > 0)
-            {
-                foreach (var depId in config.Dependencies)
-                {
-                    if (!IsWindowOpen(depId))
-                    {
-                        // 打开依赖窗口（使用默认参数）
-                        Debug.LogWarning($"Window {windowId} depends on {depId}, opening dependency first");
-                    }
-                }
-            }
-
-            // 检查多实例
-            if (!CheckMultiInstance(windowId, config))
-            {
-                callback?.Invoke(null);
-                yield break;
-            }
-
-            // 生成唯一ID
-            string uniqueId = GenerateUniqueId(windowId);
-
-            // 异步加载资源
-            string resourcePath = GetResourcePath(windowId);
-            GameObject prefab = null;
-            if (ResourceLoader != null)
-            {
-                yield return StartCoroutine(ResourceLoader.LoadGameOjbectAsync(resourcePath, (go) => { prefab = go; }));
-            }
-
-            if (prefab == null)
-            {
-                Debug.LogError($"Failed to load window resource: {resourcePath}");
-                callback?.Invoke(null);
-                yield break;
-            }
-
-            // 实例化
-            GameObject instance = Instantiate(prefab, _layerCanvases[targetLayer].transform);
-            UIWindow window = instance.GetComponent<UIWindow>();
-            if (window == null)
-            {
-                window = instance.AddComponent(windowType) as UIWindow;
-            }
-
-            // 设置窗口属性
-            window.UniqueId = uniqueId;
-            window.WindowId = windowId;
-            window.Layer = targetLayer;
-            window.UseAnimation = useAnimation;
-
-            // 创建栈节点
-            OverlayConfig finalOverlayConfig = overlayConfig ?? OverlayConfig.Default;
-            UIStackNode node = new UIStackNode
-            {
-                UniqueId = uniqueId,
-                Window = window,
-                State = UIState.Hidden,
-                Type = config?.WindowType ?? WindowType.Normal,
-                WhenCovered = finalOverlayConfig.WhenCovered,
-                AllowOverrideCoverBehavior = finalOverlayConfig.AllowOverrideCoverBehavior,
-                ParentId = parentId,
-                KeepBelowVisible = finalOverlayConfig.KeepBelowVisible,
-                PauseBelowUpdate = finalOverlayConfig.PauseBelowUpdate
-            };
-
-            // 处理界面绑定
-            if (!string.IsNullOrEmpty(parentId))
-            {
-                var parentNode = GetNode(parentId);
-                if (parentNode != null)
-                {
-                    parentNode.ChildrenIds.Add(uniqueId);
-                }
-            }
-
-            // 推入栈
-            _layerStacks[targetLayer].Push(node);
-            _allWindows[uniqueId] = node;
-
-            // 更新状态
-            UpdateWindowStates(targetLayer);
-
-            // 调用生命周期
-            window.OnCreate();
-            window.OnShow();
-            window.OnResume();
-
-            callback?.Invoke(window);
-        }
-
-        /// <summary>
-        /// 关闭窗口
-        /// </summary>
-        public void CloseWindow(long uniqueId)
-        {
-            if (string.IsNullOrEmpty(uniqueId))
-                return;
-
-            var node = GetNode(uniqueId);
-            if (node == null)
-                return;
-
-            // 关闭所有子窗口
-            if (node.ChildrenIds != null && node.ChildrenIds.Count > 0)
-            {
-                var childrenIds = new List<string>(node.ChildrenIds);
-                foreach (var childId in childrenIds)
-                {
-                    CloseWindow(childId);
-                }
-            }
-
-            // 调用生命周期
-            node.Window.OnPause();
-            node.Window.OnHide();
-            node.Window.OnDestroy();
-
-            // 从栈中移除
-            _layerStacks[node.Window.Layer].Remove(uniqueId);
-            _allWindows.Remove(uniqueId);
-
-            // 更新状态
-            UpdateWindowStates(node.Window.Layer);
-
-            // 销毁GameObject
-            if (node.Window != null)
-            {
-                Destroy(node.Window.gameObject);
-            }
-        }
-
-        /// <summary>
-        /// 获取节点
-        /// </summary>
-        private UIStackNode GetNode(long uniqueId)
-        {
-            _allWindows.TryGetValue(uniqueId, out var node);
-            return node;
-        }
-
-        /// <summary>
-        /// 更新窗口状态
-        /// </summary>
-        private void UpdateWindowStates(UILayer layer)
-        {
-            var stack = _layerStacks[layer];
-            if (stack == null || stack.IsEmpty)
-                return;
-
-            var nodes = stack.GetAllNodes();
-            UIStackNode topNode = stack.Top;
-
-            for (int i = 0; i < nodes.Count; i++)
-            {
-                var node = nodes[i];
-                bool isTop = (node == topNode);
-
-                if (isTop)
-                {
-                    // 顶层窗口
-                    if (node.State != UIState.VisibleAndActive)
-                    {
-                        node.State = UIState.VisibleAndActive;
-                        node.Window.OnResume();
-                    }
-                }
-                else
-                {
-                    // 非顶层窗口
-                    if (topNode.KeepBelowVisible)
-                    {
-                        // 保持下层可见
-                        if (node.State != UIState.VisibleButPaused)
-                        {
-                            node.State = UIState.VisibleButPaused;
-                            node.Window.OnPause();
-                        }
-                    }
-                    else
-                    {
-                        // 隐藏下层
-                        if (node.State != UIState.Hidden)
-                        {
-                            node.State = UIState.Hidden;
-                            node.Window.OnPause();
-                            node.Window.OnHide();
-                        }
-                    }
-
-                    // 暂停下层Update
-                    if (topNode.PauseBelowUpdate)
-                    {
-                        if (node.State != UIState.VisibleButPaused && node.State != UIState.Hidden)
-                        {
-                            node.State = UIState.VisibleButPaused;
-                            node.Window.OnPause();
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// 检查窗口是否打开
-        /// </summary>
-        public bool IsWindowOpen(string windowId)
-        {
-            foreach (var node in _allWindows.Values)
-            {
-                if (node.Window.WindowId == windowId)
-                    return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// 插入窗口到指定位置
-        /// </summary>
-        public void InsertWindow(string uniqueId, int index, UILayer layer)
-        {
-            var node = GetNode(uniqueId);
-            if (node == null)
-                return;
-
-            var stack = _layerStacks[layer];
-            if (stack == null)
-                return;
-
-            stack.Remove(uniqueId);
-            stack.Insert(index, node);
-            UpdateWindowStates(layer);
-        }
-
-        /// <summary>
-        /// 移除窗口（不销毁）
-        /// </summary>
-        public void RemoveWindow(string uniqueId)
-        {
-            var node = GetNode(uniqueId);
-            if (node == null)
-                return;
-
-            _layerStacks[node.Window.Layer].Remove(uniqueId);
-            _allWindows.Remove(uniqueId);
-            UpdateWindowStates(node.Window.Layer);
-        }
-
-        /// <summary>
-        /// 处理返回键
-        /// </summary>
+        /// <summary> 处理返回键 </summary>
         public bool HandleBackKey()
         {
-            // 按层级从高到低查找第一个可关闭界面
-            UILayer[] layers = { UILayer.System, UILayer.Top, UILayer.Popup, UILayer.Default };
-
-            foreach (var layer in layers)
+            if (_uiLayers == null || _uiLayers.Length == 0) return false;
+            for (int i = _uiLayers.Length - 1; i >= 0; i--)
             {
+                var layer = _uiLayers[i];
                 var stack = _layerStacks[layer];
-                if (stack == null || stack.IsEmpty)
-                    continue;
-
-                // 获取最上层的Normal类型窗口
-                var topNode = stack.GetTopNormalNode();
-                if (topNode != null && topNode.Window != null)
+                if (stack != null && !stack.IsEmpty)
                 {
-                    topNode.Window.Close();
-                    return true;
+                    var topNode = stack.GetTopNode();
+                    if (topNode != null && topNode.Window != null)
+                    {
+                        topNode.Window.Close();
+                        return true;
+                    }
                 }
             }
-
             return false;
         }
-
-        /// <summary>
-        /// 获取指定层级的栈
-        /// </summary>
-        public bool TryGetUILayerStack(UILayer layer, out UIStack stack)
-        {
-            return _layerStacks.TryGetValue(layer, out stack);
-        }
-
-        /// <summary>
-        /// 创建Canvas
-        /// </summary>
-        private void CreateCanvas()
-        {
-            Canvas = root.GetComponent<Canvas>();
-            if (Canvas == null)
-            {
-                Canvas = root.AddComponent<Canvas>();
-            }
-
-            Canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            Canvas.sortingOrder = (int)Layer;
-
-            // 添加CanvasScaler
-            var scaler = GetComponent<UnityEngine.UI.CanvasScaler>();
-            if (scaler == null)
-            {
-                scaler = gameObject.AddComponent<UnityEngine.UI.CanvasScaler>();
-                scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1920, 1080);
-                scaler.matchWidthOrHeight = 0.5f;
-            }
-
-            // 添加GraphicRaycaster
-            var raycaster = GetComponent<UnityEngine.UI.GraphicRaycaster>();
-            if (raycaster == null)
-            {
-                gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
-            }
-        }
-
 
         // ================================================
 
@@ -851,11 +451,49 @@ namespace MUFramework
 
         }
 
+        /// <summary> 创建UI摄像机 </summary>
+        private Camera CreatUICamera()
+        {
+            var cameraGO = new GameObject("UICamera");
+            cameraGO.transform.SetParent(transform);
+            cameraGO.transform.localPosition = new Vector3(0, 1000, 0);
+            var camera = cameraGO.AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.Depth;
+            camera.cullingMask = LayerMask.GetMask("UI");
+            camera.orthographic = true;
+            camera.orthographicSize = 10;
+            camera.nearClipPlane = 0.3f;
+            camera.farClipPlane = 1000f;
+            camera.depth = 0;
+            UICamera = camera;
+            return camera;
+        }
+
+        /// <summary> 创建Canvas根节点 </summary>
+        private Transform CreateCanvasRoot()
+        {
+            var canvasRootGO = new GameObject("CanvasRoot");
+            canvasRootGO.transform.SetParent(transform);
+            canvasRootGO.AddComponent<RectTransform>();
+            canvasRootGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            var canvas = canvasRootGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = UICamera;
+            var canvasScaler = canvasRootGO.AddComponent<UnityEngine.UI.CanvasScaler>();
+            canvasScaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            canvasScaler.referenceResolution = UIGlobal.CanvasScalerReferenceResolution;
+            canvasScaler.screenMatchMode = UIGlobal.CanvasScalerScreenMatchMode;
+            canvasScaler.matchWidthOrHeight = UIGlobal.CanvasScalerMatchWidthOrHeight;
+            CanvasRoot = canvasRootGO.transform;
+            return CanvasRoot;
+        }
+
         /// <summary> 初始化所有层级 </summary>
         private void InitializeLayers()
         {
-            var rootSortingLayer = _canvasRoot.GetComponent<Canvas>().sortingLayerID;
-            foreach (UILayer layer in Enum.GetValues(typeof(UILayer)))
+            var rootSortingLayer = CanvasRoot.GetComponent<Canvas>().sortingLayerID;
+            _uiLayers = (UILayer[])Enum.GetValues(typeof(UILayer));
+            foreach (UILayer layer in _uiLayers)
             {
                 CreateLayer(layer, rootSortingLayer);
             }
@@ -866,12 +504,22 @@ namespace MUFramework
         {
             // 创建Canvas
             GameObject canvasGO = new($"Canvas_{layer}");
-            canvasGO.transform.SetParent(_canvasRoot);
+            canvasGO.transform.SetParent(CanvasRoot);
             Canvas canvas = canvasGO.AddComponent<Canvas>();
             canvas.sortingLayerID = rootSortingLayer;
             canvas.sortingOrder = (int)layer * UIGlobal.LayerSortingOrderInterval;
+            canvasGO.AddComponent<UnityEngine.UI.GraphicRaycaster>();
             UIStack stack = new(layer, canvasGO);
             _layerStacks[layer] = stack;
+        }
+
+        /// <summary> 创建EventSystem </summary>
+        private void CreateEventSystem()
+        {
+            var eventSystemGO = new GameObject("EventSystem");
+            eventSystemGO.transform.SetParent(transform);
+            eventSystemGO.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            eventSystemGO.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
         }
 
         /// <summary> 添加UIStackNode </summary>
@@ -913,6 +561,12 @@ namespace MUFramework
             {
                 RecycleUIStackNode(node);
             }
+        }
+
+        /// <summary> 获取指定层级的栈 </summary>
+        private bool TryGetUILayerStack(UILayer layer, out UIStack stack)
+        {
+            return _layerStacks.TryGetValue(layer, out stack);
         }
 
         /// <summary> 获取窗口实例数量 </summary>
@@ -1065,7 +719,7 @@ namespace MUFramework
         {
             var nodes = GetUIStackNodes(windowId);
             if ((nodes == null) || (nodes.Count == 0)) return;
-            CloseWindow(nodes[0].UniqueId);
+            Close(nodes[0].UniqueId);
         }
 
         /// <summary> 关闭最新的实例 </summary>
@@ -1073,7 +727,7 @@ namespace MUFramework
         {
             var nodes = GetUIStackNodes(windowId);
             if ((nodes == null) || (nodes.Count == 0)) return;
-            CloseWindow(nodes[^1].UniqueId);
+            Close(nodes[^1].UniqueId);
         }
 
         /// <summary> 处理依赖 </summary>
@@ -1084,7 +738,7 @@ namespace MUFramework
             _stringListCache.Clear();
             for (int i = 0; i < openConfig.Dependencies.Count; i++)
             {
-                if (!IsWindowOpen(openConfig.Dependencies[i]))
+                if (!ExistUI(openConfig.Dependencies[i]))
                 {
                     _stringListCache.Add(openConfig.Dependencies[i]);
                 }
@@ -1152,8 +806,14 @@ namespace MUFramework
             obj.transform.SetParent(stack.Root.transform, false);
             obj.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             obj.transform.localScale = Vector3.one;
-            // 
-            return null;
+            // 打开界面
+            node.Window.Init(node);
+            node.Window.Open(args);
+            if (!node.IsHidden)
+            {
+                node.Window.Show();
+            }
+            return node.Window;
         }
     }
 }

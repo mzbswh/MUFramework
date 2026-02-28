@@ -1,4 +1,6 @@
 using System;
+using UnityEngine;
+using static UnityEngine.UI.CanvasScaler;
 
 namespace MUFramework
 {
@@ -30,7 +32,11 @@ namespace MUFramework
         /// </summary>
         public static int InLayerSortingOrderInterval = 20;
 
-        public static IUIAnimation DefaultAnimationHelper = new DefaultUIAnimation();
+        public static IUIAnimation DefaultAnimation = new DefaultUIAnimation();
+
+        public static Vector2 CanvasScalerReferenceResolution = new(1920, 1080);
+        public static ScreenMatchMode CanvasScalerScreenMatchMode = ScreenMatchMode.MatchWidthOrHeight;
+        public static float CanvasScalerMatchWidthOrHeight = 0f;
 
         public static void ApplyConfig(GlobalConfigData config)
         {
