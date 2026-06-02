@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
-using PlasticGui.WorkspaceWindow;
 using UnityEngine;
 
 namespace MUFramework
@@ -236,7 +234,7 @@ namespace MUFramework
                 {
                     coverLevel = (int)node.OpenConfig.OpenBehavior;
                 }
-                coverd = false; // 除了第一个，下面的都是Coverd状态
+                coverd = true; // 第一个节点以下的所有节点都处于被覆盖状态
             }
         }
     }

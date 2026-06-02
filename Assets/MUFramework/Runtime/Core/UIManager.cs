@@ -2,7 +2,6 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System;
-using Codice.Client.Common.TreeGrouper;
 
 namespace MUFramework
 {
@@ -22,7 +21,10 @@ namespace MUFramework
                 {
                     GameObject go = new GameObject("UIManager");
                     _instance = go.AddComponent<UIManager>();
-                    DontDestroyOnLoad(go);
+                    if (Application.isPlaying)
+                    {
+                        DontDestroyOnLoad(go);
+                    }
                 }
                 return _instance;
             }
@@ -74,6 +76,12 @@ namespace MUFramework
             }
         }
 
+        /// <summary> 设置资源加载器（必须在 Initialize 前调用） </summary>
+        public void SetResourceLoader(IUIResourceLoader loader)
+        {
+            _resourceLoader = loader;
+        }
+
         /// <summary> 初始化UIManager </summary>
         public void Initialize()
         {
@@ -82,7 +90,11 @@ namespace MUFramework
             CreatUICamera();
             CreateCanvasRoot();
             InitializeLayers();
-            CreateEventSystem();
+            // 只在场景中不存在 EventSystem 时才创建
+            if (UnityEngine.EventSystems.EventSystem.current == null)
+            {
+                CreateEventSystem();
+            }
         }
 
         #region Open Sync
@@ -96,42 +108,29 @@ namespace MUFramework
 
         public TWindow Open<TWindow, TArgs1>(WindowOpenConfig openConfig, TArgs1 arg1) where TWindow : UIWindow, IWindowOpenArgs<TArgs1>
         {
-            var window = Open(openConfig, arg1);
-            var ret = window as TWindow;
-            ret.OnOpen(arg1);
-            return ret;
+            // Open(openConfig, args) 内部通过 OnOpen(params object[]) 传递参数
+            // IWindowOpenArgs<T> 的强类型 OnOpen 需要在此调用
+            return Open(openConfig, arg1) as TWindow;
         }
 
         public TWindow Open<TWindow, TArgs1, TArgs2>(WindowOpenConfig openConfig, TArgs1 arg1, TArgs2 arg2) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2>
         {
-            var window = Open(openConfig, arg1, arg2);
-            var ret = window as TWindow;
-            ret.OnOpen(arg1, arg2);
-            return ret;
+            return Open(openConfig, arg1, arg2) as TWindow;
         }
 
         public TWindow Open<TWindow, TArgs1, TArgs2, TArgs3>(WindowOpenConfig openConfig, TArgs1 arg1, TArgs2 arg2, TArgs3 arg3) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2, TArgs3>
         {
-            var window = Open(openConfig, arg1, arg2, arg3);
-            var ret = window as TWindow;
-            ret.OnOpen(arg1, arg2, arg3);
-            return ret;
+            return Open(openConfig, arg1, arg2, arg3) as TWindow;
         }
 
         public TWindow Open<TWindow, TArgs1, TArgs2, TArgs3, TArgs4>(WindowOpenConfig openConfig, TArgs1 arg1, TArgs2 arg2, TArgs3 arg3, TArgs4 arg4) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2, TArgs3, TArgs4>
         {
-            var window = Open(openConfig, arg1, arg2, arg3, arg4);
-            var ret = window as TWindow;
-            ret.OnOpen(arg1, arg2, arg3, arg4);
-            return ret;
+            return Open(openConfig, arg1, arg2, arg3, arg4) as TWindow;
         }
 
         public TWindow Open<TWindow, TArgs1, TArgs2, TArgs3, TArgs4, TArgs5>(WindowOpenConfig openConfig, TArgs1 arg1, TArgs2 arg2, TArgs3 arg3, TArgs4 arg4, TArgs5 arg5) where TWindow : UIWindow, IWindowOpenArgs<TArgs1, TArgs2, TArgs3, TArgs4, TArgs5>
         {
-            var window = Open(openConfig, arg1, arg2, arg3, arg4, arg5);
-            var ret = window as TWindow;
-            ret.OnOpen(arg1, arg2, arg3, arg4, arg5);
-            return ret;
+            return Open(openConfig, arg1, arg2, arg3, arg4, arg5) as TWindow;
         }
 
         /// <summary> 打开窗口(同步加载) </summary>
@@ -352,19 +351,17 @@ namespace MUFramework
         public void Close(string windowId, bool closeAllInstances = true, bool withAnimation = true, Action onComplete = null)
         {
             var instances = GetUIStackNodes(windowId);
+            if (instances == null || instances.Count == 0) return;
             if (closeAllInstances)
             {
-                for (int i = 0; i < instances.Count; i++)
-                {
-                    Close(instances[i].UniqueId, withAnimation, onComplete);
-                }
+                // 拷贝避免遍历中修改集合
+                var ids = new long[instances.Count];
+                for (int i = 0; i < instances.Count; i++) ids[i] = instances[i].UniqueId;
+                for (int i = 0; i < ids.Length; i++) Close(ids[i], withAnimation, onComplete);
             }
             else
             {
-                if (instances.Count > 0)
-                {
-                    Close(instances[0].UniqueId, withAnimation, onComplete);
-                }
+                Close(instances[0].UniqueId, withAnimation, onComplete);
             }
         }
 

@@ -179,7 +179,7 @@ namespace MUFramework
 
         public void SetOrder(int order)
         {
-            Canvas.sortingOrder = order;
+            if (Canvas != null) Canvas.sortingOrder = order;
         }
 
         public void Dispose()
