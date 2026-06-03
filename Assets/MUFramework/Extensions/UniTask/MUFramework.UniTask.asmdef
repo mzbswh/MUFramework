@@ -1,0 +1,22 @@
+{
+    "name": "MUFramework.UniTask",
+    "references": [
+        "MUIFramework",
+        "UniTask"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.cysharp.unitask",
+            "expression": "",
+            "define": "UNITASK_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}

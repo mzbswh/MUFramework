@@ -1,13 +1,76 @@
+using UnityEngine;
+
 namespace MUFramework
 {
     /// <summary>
-    /// UIPanel基类
-    /// 子面板，如一个window有多个tab，每个tab显示不同panel
-    /// panel与panel之间可嵌套
+    /// Window-internal pure C# sub-panel. It is not managed by the global UI stack.
     /// </summary>
-    public abstract class UIPanel : UIWindow
+    public abstract class UIPanel
     {
-        // Panel继承自Window，但通常不参与栈管理
-        // 具体的栈管理逻辑由UIManager决定
+        public GameObject GameObject { get; private set; }
+        public Transform Transform { get; private set; }
+        public UIWindow OwnerWindow { get; private set; }
+        public bool IsActive { get; private set; }
+
+        public void Init(GameObject root, UIWindow owner)
+        {
+            GameObject = root;
+            Transform = root.transform;
+            OwnerWindow = owner;
+            AutoBindComponents();
+            BindComponents();
+            OnCreate();
+        }
+
+        public void Activate()
+        {
+            if (IsActive) return;
+            IsActive = true;
+            GameObject.SetActive(true);
+            OnActivate();
+        }
+
+        public void Deactivate()
+        {
+            if (!IsActive) return;
+            IsActive = false;
+            OnDeactivate();
+            GameObject.SetActive(false);
+        }
+
+        public void Refresh() => OnRefresh();
+
+        public void Destroy()
+        {
+            OnDestroy();
+            IsActive = false;
+            GameObject = null;
+            Transform = null;
+            OwnerWindow = null;
+        }
+
+        internal virtual void AutoBindComponents() { }
+
+        protected virtual void BindComponents() { }
+        protected virtual void OnCreate() { }
+        protected virtual void OnActivate() { }
+        protected virtual void OnDeactivate() { }
+        protected virtual void OnRefresh() { }
+        protected virtual void OnDestroy() { }
+    }
+
+    public abstract class UIPanel<TData> : UIPanel
+    {
+        protected TData Data { get; private set; }
+
+        public void Activate(TData data)
+        {
+            Data = data;
+            Activate();
+        }
+
+        protected sealed override void OnActivate() => OnActivate(Data);
+
+        protected abstract void OnActivate(TData data);
     }
 }

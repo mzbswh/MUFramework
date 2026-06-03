@@ -83,7 +83,7 @@ namespace MUFramework
             UniqueId = uniqueId;
         }
 
-        public void AttackGameObject(GameObject obj)
+        public void AttachGameObject(GameObject obj)
         {
             GameObject = obj;
             Transform = obj.transform;
@@ -115,19 +115,12 @@ namespace MUFramework
             if (cover)
             {
                 SetState(UIState.Covered);
-                if (IsLoaded)
-                {
-                    Window.OnCovere();
-                }
             }
             else
             {
                 UnsetState(UIState.Covered);
-                if (IsLoaded)
-                {
-                    Window.OnUncover();
-                }
             }
+            if (IsLoaded) Window?.OnCoverInternal(cover);
         }
 
         public void SetHide(bool hide)
@@ -157,19 +150,12 @@ namespace MUFramework
             if (pause)
             {
                 SetState(UIState.Paused);
-                if (IsLoaded)
-                {
-                    Window.Pause();
-                }
             }
             else
             {
                 UnsetState(UIState.Paused);
-                if (IsLoaded)
-                {
-                    Window.Resume();
-                }
             }
+            if (IsLoaded) Window?.OnPauseInternal(pause);
         }
 
         public void SetExpireTime(double expireTime)

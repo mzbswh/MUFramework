@@ -27,7 +27,7 @@ namespace MUFramework.Tests
 
         private UIStackNode MakeNode(long id, string windowId = "TestWindow",
             OpenBehavior openBehavior = OpenBehavior.KeepBelow,
-            CoverdBehavior whenCovered = CoverdBehavior.Normal,
+            CoveredBehavior whenCovered = CoveredBehavior.Normal,
             WindowAttr attr = WindowAttr.None)
         {
             var config = WindowOpenConfig.Default;
@@ -41,7 +41,8 @@ namespace MUFramework.Tests
 
             var go = new GameObject(windowId + "_" + id);
             go.transform.SetParent(_root.transform);
-            node.AttackGameObject(go);
+            node.AttachGameObject(go);
+            node.Window.Init(node);
             return node;
         }
 
@@ -227,6 +228,17 @@ namespace MUFramework.Tests
             Assert.AreSame(n1, top);
         }
 
+        [Test]
+        public void GetTopNode_SkipBackKey_SkipsBackKeyNodes()
+        {
+            var n1 = MakeNode(1);
+            var nSkip = MakeNode(2, attr: WindowAttr.SkipBackKey);
+            _stack.Push(n1);
+            _stack.Push(nSkip);
+            var top = _stack.GetTopNode(skipBackKeyCheck: true);
+            Assert.AreSame(n1, top);
+        }
+
         // ===== Clear =====
 
         [Test]
@@ -294,7 +306,7 @@ namespace MUFramework.Tests
         public void UpdateAllStackNode_HideBehavior_HidesLowerNodes()
         {
             // 栈顶 OpenBehavior=HideBelow，下方节点应被隐藏
-            var nBottom = MakeNode(1, openBehavior: OpenBehavior.KeepBelow, whenCovered: CoverdBehavior.Hide);
+            var nBottom = MakeNode(1, openBehavior: OpenBehavior.KeepBelow, whenCovered: CoveredBehavior.Hide);
             var nTop = MakeNode(2, openBehavior: OpenBehavior.HideBelow);
             _stack.Push(nBottom);
             _stack.Push(nTop);
@@ -305,7 +317,7 @@ namespace MUFramework.Tests
         [Test]
         public void UpdateAllStackNode_PauseBehavior_PausesLowerNodes()
         {
-            var nBottom = MakeNode(1, whenCovered: CoverdBehavior.Pause);
+            var nBottom = MakeNode(1, whenCovered: CoveredBehavior.Pause);
             var nTop = MakeNode(2, openBehavior: OpenBehavior.PauseBelow);
             _stack.Push(nBottom);
             _stack.Push(nTop);
@@ -316,7 +328,7 @@ namespace MUFramework.Tests
         [Test]
         public void UpdateAllStackNode_AfterRemove_RestoresCoveredState()
         {
-            var nBottom = MakeNode(1, whenCovered: CoverdBehavior.Hide);
+            var nBottom = MakeNode(1, whenCovered: CoveredBehavior.Hide);
             var nTop = MakeNode(2, openBehavior: OpenBehavior.HideBelow);
             _stack.Push(nBottom);
             _stack.Push(nTop);

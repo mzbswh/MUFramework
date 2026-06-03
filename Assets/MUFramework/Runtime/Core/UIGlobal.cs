@@ -18,9 +18,16 @@ namespace MUFramework
         public const string UI_EVENT_WINDOW_DESTROY = "UIEvent_WindowDestroy";
 
         public static Action<LogLevel, string> LogHandler;
-        public static Action<string> UIEventHandler;
+        public static Action<string, string> UIEventHandler;
         public static Func<string, (bool, WindowOpenConfig)> GetWindowOpenConfigFunc;
         public static Func<string, Type> GetWindowClassTypeFunc;
+
+#if UNITY_EDITOR
+        public static object BindingNamingRule;
+#endif
+
+        public static void FireEvent(string eventName, string windowId)
+            => UIEventHandler?.Invoke(eventName, windowId);
 
         /// <summary>
         /// 每个UILayer的Sorting Order间隔

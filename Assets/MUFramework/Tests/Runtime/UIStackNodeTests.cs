@@ -19,7 +19,8 @@ namespace MUFramework.Tests
             _node.Initialize(_config, new TestWindow(), 1L);
 
             _go = new GameObject("TestWindow");
-            _node.AttackGameObject(_go);
+            _node.AttachGameObject(_go);
+            _node.Window.Init(_node);
         }
 
         [TearDown]
@@ -51,29 +52,29 @@ namespace MUFramework.Tests
             Assert.IsFalse(freshNode.IsLoaded);
         }
 
-        // ===== AttackGameObject =====
+        // ===== AttachGameObject =====
 
         [Test]
-        public void AttackGameObject_SetsGameObject()
+        public void AttachGameObject_SetsGameObject()
         {
             Assert.AreSame(_go, _node.GameObject);
         }
 
         [Test]
-        public void AttackGameObject_TransitionsToLoaded()
+        public void AttachGameObject_TransitionsToLoaded()
         {
             Assert.IsTrue(_node.IsLoaded);
             Assert.IsFalse(_node.IsLoading);
         }
 
         [Test]
-        public void AttackGameObject_AddsCanvasGroup()
+        public void AttachGameObject_AddsCanvasGroup()
         {
             Assert.IsNotNull(_node.CanvasGroup);
         }
 
         [Test]
-        public void AttackGameObject_AddsCanvas()
+        public void AttachGameObject_AddsCanvas()
         {
             Assert.IsNotNull(_node.Canvas);
         }
@@ -206,7 +207,7 @@ namespace MUFramework.Tests
         {
             var emptyNode = new UIStackNode();
             emptyNode.Initialize(_config, new TestWindow(), 2L);
-            // Canvas is null (AttackGameObject not called)
+            // Canvas is null (AttachGameObject not called)
             Assert.DoesNotThrow(() => emptyNode.SetOrder(10));
         }
 

@@ -16,21 +16,69 @@ namespace MUFramework.Tests
         public int OnCloseCount;
         public int OnDestroyCount;
         public object[] LastOpenArgs;
+        public string LastMsg;
 
         protected override void OnCreate() => OnCreateCount++;
-        protected override void OnOpen(params object[] args) { OnOpenCount++; LastOpenArgs = args; }
+        protected override void OnOpen() => OnOpenCount++;
+        internal override void OnOpenInternal(object[] args)
+        {
+            LastOpenArgs = args;
+            base.OnOpenInternal(args);
+        }
         protected override void OnShow() => OnShowCount++;
         protected override void OnHide() => OnHideCount++;
         protected override void OnPause() => OnPauseCount++;
         protected override void OnResume() => OnResumeCount++;
         protected override void OnClose() => OnCloseCount++;
         protected override void OnDestroy() => OnDestroyCount++;
+        protected override void OnMessage(string msg, params object[] args) => LastMsg = msg;
     }
 
     public class TestWindow2 : UIWindow { }
 
     // 带 SkipCoveredCheck 属性的窗口
     public class OverlayWindow : UIWindow { }
+
+    [UIWindowConfig(layer: UILayer.Default, cache: CacheType.None)]
+    public class TestWindowWithAttr : UIWindow { }
+
+    public class TestWidget : UIWidget
+    {
+        public int OpenCount;
+        public int CloseCount;
+        public int ShowCount;
+        public int HideCount;
+        public int PauseCount;
+        public int ResumeCount;
+        public int UpdateCount;
+
+        protected override void OnOpen() => OpenCount++;
+        protected override void OnClose() => CloseCount++;
+        protected override void OnShow() => ShowCount++;
+        protected override void OnHide() => HideCount++;
+        protected override void OnPause() => PauseCount++;
+        protected override void OnResume() => ResumeCount++;
+        protected override void OnUpdate(float deltaTime) => UpdateCount++;
+    }
+
+    public class TestPanel : UIPanel
+    {
+        public int CreateCount;
+        public int ActivateCount;
+        public int DeactivateCount;
+        public int DestroyCount;
+
+        protected override void OnCreate() => CreateCount++;
+        protected override void OnActivate() => ActivateCount++;
+        protected override void OnDeactivate() => DeactivateCount++;
+        protected override void OnDestroy() => DestroyCount++;
+    }
+
+    public class TestDataPanel : UIPanel<int>
+    {
+        public int LastData;
+        protected override void OnActivate(int data) => LastData = data;
+    }
 
     // 资源加载器：直接实例化 GameObject，无需实际资源
     public class TestResourceLoader : IUIResourceLoader
@@ -58,6 +106,7 @@ namespace MUFramework.Tests
                 "TestWindow" => typeof(TestWindow),
                 "TestWindow2" => typeof(TestWindow2),
                 "OverlayWindow" => typeof(OverlayWindow),
+                "TestWindowWithAttr" => typeof(TestWindowWithAttr),
                 _ => null
             };
         }

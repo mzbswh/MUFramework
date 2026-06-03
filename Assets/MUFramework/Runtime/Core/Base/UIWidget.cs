@@ -2,25 +2,15 @@ using UnityEngine;
 
 namespace MUFramework
 {
-    /// <summary>
-    /// UIWidget基类 (通用UI组件, 默认附加在UIWindow上)
-    /// </summary>
     public abstract class UIWidget
     {
         public bool Inited { get; private set; }
         public GameObject GameObject { get; private set; }
         public Transform Transform { get; private set; }
-
         public object Data { get; private set; }
         public UIWindow AttachedWindow { get; private set; }
-
         public bool UpdateByMono { get; private set; }
 
-        /// <summary>
-        /// 初始化UIWidget
-        /// </summary>
-        /// <param name="root">根GameObject</param>
-        /// <param name="updateByMono">是否使用MonoAdapter管理Update和UpdatePerSecond</param>
         public void Init(GameObject root, bool updateByMono = false)
         {
             Inited = true;
@@ -77,22 +67,27 @@ namespace MUFramework
         {
             if (!Inited) return;
             OnDestroy();
+            Inited = false;
         }
 
-        // ===== 子类重写生命周期回调 =====
+        internal void NotifyOpen() { if (Inited) OnOpen(); }
+        internal void NotifyClose() { if (Inited) OnClose(); }
+        internal void NotifyShow() { if (Inited) OnShow(); }
+        internal void NotifyHide() { if (Inited) OnHide(); }
+        internal void NotifyPause() { if (Inited) OnPause(); }
+        internal void NotifyResume() { if (Inited) OnResume(); }
 
-        /// <summary> 创建时调用 </summary>
         protected virtual void OnCreate() { }
-        /// <summary> 设置Active时调用 </summary>
+        protected virtual void OnOpen() { }
+        protected virtual void OnClose() { }
+        protected virtual void OnShow() { }
+        protected virtual void OnHide() { }
+        protected virtual void OnPause() { }
+        protected virtual void OnResume() { }
         protected virtual void OnSetActive(bool active) { }
-        /// <summary> 更新时调用 </summary>
         protected virtual void OnUpdate(float deltaTime) { }
-        /// <summary> 每秒更新时调用(通用逻辑) </summary>
         protected virtual void OnUpdatePerSecond() { }
-        /// <summary> 销毁时调用 </summary>
         protected virtual void OnDestroy() { }
-
-        /// <summary> 刷新UI时调用 </summary>
         protected virtual void OnRefreshUI() { }
     }
 

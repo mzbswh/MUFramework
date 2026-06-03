@@ -11,5 +11,8 @@ namespace MUFramework
 
         /// <summary> 不参与是否覆盖下层检查（如跑马灯消息界面） </summary>
         SkipCoveredCheck = 1 << 0,
+
+        /// <summary> 不响应返回键 </summary>
+        SkipBackKey = 1 << 1,
     }
 }

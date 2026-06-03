@@ -25,7 +25,7 @@ namespace MUFramework.Tests
             _node.Initialize(config, _window, 1L);
 
             _go = new GameObject("TestWindow");
-            _node.AttackGameObject(_go);
+            _node.AttachGameObject(_go);
         }
 
         [TearDown]
@@ -38,7 +38,7 @@ namespace MUFramework.Tests
         private void InitWindow(params object[] args)
         {
             _window.Init(_node);
-            _window.Open(args);
+            _window.OnOpenInternal(args);
         }
 
         // ===== Init / OnCreate =====
@@ -119,7 +119,7 @@ namespace MUFramework.Tests
         public void Pause_InvokesOnPause()
         {
             InitWindow();
-            _window.Pause();
+            _node.SetPause(true);
             Assert.AreEqual(1, _window.OnPauseCount);
         }
 
@@ -127,7 +127,7 @@ namespace MUFramework.Tests
         public void Pause_SetsPausedState()
         {
             InitWindow();
-            _window.Pause();
+            _node.SetPause(true);
             Assert.IsTrue(_window.IsPause);
         }
 
@@ -135,8 +135,8 @@ namespace MUFramework.Tests
         public void Pause_Idempotent_NotCalledTwice()
         {
             InitWindow();
-            _window.Pause();
-            _window.Pause();
+            _node.SetPause(true);
+            _node.SetPause(true);
             Assert.AreEqual(1, _window.OnPauseCount);
         }
 
@@ -144,8 +144,8 @@ namespace MUFramework.Tests
         public void Resume_AfterPause_InvokesOnResume()
         {
             InitWindow();
-            _window.Pause();
-            _window.Resume();
+            _node.SetPause(true);
+            _node.SetPause(false);
             Assert.AreEqual(1, _window.OnResumeCount);
         }
 
@@ -153,8 +153,8 @@ namespace MUFramework.Tests
         public void Resume_ClearsPausedState()
         {
             InitWindow();
-            _window.Pause();
-            _window.Resume();
+            _node.SetPause(true);
+            _node.SetPause(false);
             Assert.IsFalse(_window.IsPause);
         }
 
@@ -162,7 +162,7 @@ namespace MUFramework.Tests
         public void Resume_WithoutPause_DoesNothing()
         {
             InitWindow();
-            _window.Resume();
+            _node.SetPause(false);
             Assert.AreEqual(0, _window.OnResumeCount);
         }
 
@@ -242,6 +242,53 @@ namespace MUFramework.Tests
             Object.DestroyImmediate(widgetGo);
         }
 
+        // ===== Widget Lifecycle Notification =====
+
+        [Test]
+        public void Widget_NotifyOpen_CalledWhenWindowOpens()
+        {
+            InitWindow();
+            var widgetGo = new GameObject("Widget");
+            var widget = new TestWidget();
+            widget.Init(widgetGo);
+            _window.AttachWidget(widget);
+
+            _window.OnOpenInternal_ForTest(System.Array.Empty<object>());
+
+            Assert.AreEqual(1, widget.OpenCount);
+            Object.DestroyImmediate(widgetGo);
+        }
+
+        [Test]
+        public void Widget_NotifyShow_CalledWhenWindowShows()
+        {
+            InitWindow();
+            var widgetGo = new GameObject("Widget");
+            var widget = new TestWidget();
+            widget.Init(widgetGo);
+            _window.AttachWidget(widget);
+
+            _window.Show(withAnimation: false);
+
+            Assert.AreEqual(1, widget.ShowCount);
+            Object.DestroyImmediate(widgetGo);
+        }
+
+        [Test]
+        public void Widget_NotifyPause_CalledWhenWindowPauses()
+        {
+            InitWindow();
+            var widgetGo = new GameObject("Widget");
+            var widget = new TestWidget();
+            widget.Init(widgetGo);
+            _window.AttachWidget(widget);
+
+            _window.OnPauseInternal_ForTest(true);
+
+            Assert.AreEqual(1, widget.PauseCount);
+            Object.DestroyImmediate(widgetGo);
+        }
+
         // ===== 属性委托到 UIStackNode =====
 
         [Test]
@@ -259,10 +306,4 @@ namespace MUFramework.Tests
         }
     }
 
-    // 简单 Widget，用于 AttachWidget 测试
-    public class TestWidget : UIWidget
-    {
-        public int UpdateCount;
-        protected override void OnUpdate(float deltaTime) => UpdateCount++;
-    }
 }

@@ -96,14 +96,14 @@ namespace MUFramework
         /// <summary>
         /// 移除指定节点
         /// </summary>
-        public bool Remove(long uniqueId, bool recaculate = true)
+        public bool Remove(long uniqueId, bool recalculate = true)
         {
             if (!_nodeDict.TryGetValue(uniqueId, out var node)) return false;
             _stack.Remove(node);
             _nodeDict.Remove(uniqueId);
-            if (recaculate)
+            if (recalculate)
             {
-                RecaculateSortingOrder();
+                RecalculateSortingOrder();
                 UpdateAllStackNode();
             }
             return true;
@@ -124,7 +124,7 @@ namespace MUFramework
             }
             _stack.Insert(index, node);
             _nodeDict[node.UniqueId] = node;
-            RecaculateSortingOrder();
+            RecalculateSortingOrder();
             UpdateAllStackNode();
         }
 
@@ -161,19 +161,15 @@ namespace MUFramework
         /// <summary>
         /// 获取最上层节点
         /// </summary>
-        public UIStackNode GetTopNode(bool skipCoveredCheck = false)
+        public UIStackNode GetTopNode(bool skipCoveredCheck = false, bool skipBackKeyCheck = false)
         {
-            if (_stack.Count == 0) return null;
-            if (!skipCoveredCheck)
-            {
-                return _stack[^1];
-            }
             for (int i = _stack.Count - 1; i >= 0; i--)
             {
-                if (_stack[i].OpenConfig.WindowAttr != WindowAttr.SkipCoveredCheck)
-                {
-                    return _stack[i];
-                }
+                var node = _stack[i];
+                if (node.IsClosing || node.IsClosed) continue;
+                if (skipCoveredCheck && node.OpenConfig.WindowAttr.HasFlag(WindowAttr.SkipCoveredCheck)) continue;
+                if (skipBackKeyCheck && node.OpenConfig.WindowAttr.HasFlag(WindowAttr.SkipBackKey)) continue;
+                return node;
             }
             return null;
         }
@@ -187,7 +183,7 @@ namespace MUFramework
             _nodeDict.Clear();
         }
 
-        private void RecaculateSortingOrder()
+        private void RecalculateSortingOrder()
         {
             for (int i = 0; i < _stack.Count; i++)
             {
@@ -198,31 +194,33 @@ namespace MUFramework
         private void UpdateAllStackNode()
         {
             int coverLevel = 0; // 0=Keep, 1=Pause, 2=Hide
-            bool coverd = false;
+            bool covered = false;
             for (int i = _stack.Count - 1; i >= 0; i--)
             {
                 var node = _stack[i];
                 if (node.IsClosing || node.IsClosed) continue;
                 if (node.OpenConfig.WindowAttr.HasFlag(WindowAttr.SkipCoveredCheck)) continue;
 
-                node.SetCover(coverd);
+                node.SetCover(covered);
                 // 取上方累积的 coverLevel 与自身 WhenCovered 的最大值
-                CoverdBehavior finalCoverBehavior = coverLevel > (int)node.OpenConfig.WhenCovered ? (CoverdBehavior)coverLevel : node.OpenConfig.WhenCovered;
-                switch (finalCoverBehavior)
+                CoveredBehavior finalBehavior = (int)node.OpenConfig.WhenCovered > coverLevel
+                    ? node.OpenConfig.WhenCovered
+                    : (CoveredBehavior)coverLevel;
+                switch (finalBehavior)
                 {
-                    case CoverdBehavior.Normal:
+                    case CoveredBehavior.Normal:
                     {
                         node.SetHide(false);
                         node.SetPause(false);
                         break;
                     }
-                    case CoverdBehavior.Pause:
+                    case CoveredBehavior.Pause:
                     {
                         node.SetHide(false);
                         node.SetPause(true);
                         break;
                     }
-                    case CoverdBehavior.Hide:
+                    case CoveredBehavior.Hide:
                     {
                         node.SetPause(true);
                         node.SetHide(true);
@@ -234,7 +232,7 @@ namespace MUFramework
                 {
                     coverLevel = (int)node.OpenConfig.OpenBehavior;
                 }
-                coverd = true; // 第一个节点以下的所有节点都处于被覆盖状态
+                covered = true; // 第一个节点以下的所有节点都处于被覆盖状态
             }
         }
     }

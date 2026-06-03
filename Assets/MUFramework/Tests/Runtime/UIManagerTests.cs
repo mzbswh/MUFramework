@@ -47,17 +47,19 @@ namespace MUFramework.Tests
             OverflowPolicy overflow = OverflowPolicy.CloseOldest,
             CacheType cache = CacheType.None,
             OpenBehavior openBehavior = OpenBehavior.KeepBelow,
-            CoverdBehavior whenCovered = CoverdBehavior.Normal)
+            CoveredBehavior whenCovered = CoveredBehavior.Normal)
         {
-            var c = WindowOpenConfig.Default;
-            c.WindowId = windowId;
-            c.AllowMultiInstance = multiInstance;
-            c.MaxInstances = maxInstances;
-            c.OverflowPolicy = overflow;
-            c.CacheType = cache;
-            c.OpenBehavior = openBehavior;
-            c.WhenCovered = whenCovered;
-            return c;
+            return new WindowOpenConfig
+            {
+                WindowId = windowId,
+                AllowMultiInstance = multiInstance,
+                MaxInstances = maxInstances,
+                OverflowPolicy = overflow,
+                CacheType = cache,
+                OpenBehavior = openBehavior,
+                WhenCovered = whenCovered,
+                Layer = UILayer.Default,
+            };
         }
 
         // ===== Initialize =====
@@ -289,6 +291,19 @@ namespace MUFramework.Tests
             Assert.IsFalse(_manager.HandleBackKey());
         }
 
+        [Test]
+        public void HandleBackKey_SkipBackKeyWindow_SkipsAndClosesNext()
+        {
+            var bottom = _manager.Open(MakeConfig("TestWindow"));
+            var topConfig = MakeConfig("TestWindow2");
+            topConfig.WindowAttr = WindowAttr.SkipBackKey;
+            var top = _manager.Open(topConfig);
+
+            Assert.IsTrue(_manager.HandleBackKey());
+            Assert.IsFalse(_manager.ExistUI(bottom.UniqueId));
+            Assert.IsTrue(_manager.ExistUI(top.UniqueId));
+        }
+
         // ===== Dependencies =====
 
         [Test]
@@ -373,6 +388,54 @@ namespace MUFramework.Tests
             _manager.SetResourceLoader(new TestResourceLoader());
             window = _manager.Open(MakeConfig("TestWindow"));
             Assert.IsNotNull(window);
+        }
+
+        // ===== Registry =====
+
+        [Test]
+        public void ScanAndRegisterAll_RegistersAttributeDecoratedWindow()
+        {
+            Assert.IsNotNull(_manager.GetRegistration_ForTest("TestWindowWithAttr"));
+        }
+
+        [Test]
+        public void Open_UsingSimplifiedAPI_NoConfig_OpensWindow()
+        {
+            var window = _manager.Open<TestWindowWithAttr>();
+            Assert.IsNotNull(window);
+        }
+
+        // ===== Query API =====
+
+        [Test]
+        public void GetWindow_AfterOpen_ReturnsInstance()
+        {
+            _manager.Open(MakeConfig("TestWindow"));
+            var window = _manager.GetWindow<TestWindow>();
+            Assert.IsNotNull(window);
+        }
+
+        [Test]
+        public void TryGetWindow_NotOpen_ReturnsFalse()
+        {
+            Assert.IsFalse(_manager.TryGetWindow<TestWindow>(out _));
+        }
+
+        [Test]
+        public void IsOpen_AfterOpen_ReturnsTrue()
+        {
+            _manager.Open(MakeConfig("TestWindow"));
+            Assert.IsTrue(_manager.IsOpen<TestWindow>());
+        }
+
+        // ===== Message API =====
+
+        [Test]
+        public void SendMessage_ReachesWindow()
+        {
+            var window = _manager.Open(MakeConfig("TestWindow")) as TestWindow;
+            _manager.SendMessage<TestWindow>("hello");
+            Assert.AreEqual("hello", window.LastMsg);
         }
     }
 }

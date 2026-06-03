@@ -1,74 +1,95 @@
-using UnityEngine;
-using System.Collections;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
+using UnityEngine;
 
 namespace MUFramework
 {
     /// <summary>
-    /// UIWindow基类
-    /// 一个window代表一个完整的UI界面
+    /// UIWindow base class. One window represents a complete UI screen.
     /// </summary>
     public abstract class UIWindow
     {
-        /// <summary> 唯一ID </summary>
         public long UniqueId => _stackNode.UniqueId;
-
-        /// <summary> 根GameObject </summary>
         public GameObject GameObject => _stackNode.GameObject;
-
-        /// <summary> 根Transform </summary>
         public Transform Transform => _stackNode.Transform;
-
-        /// <summary> CanvasGroup组件 </summary>
         public CanvasGroup CanvasGroup => _stackNode.CanvasGroup;
-
-        /// <summary> Canvas组件 </summary>
         public Canvas Canvas => _stackNode.Canvas;
-
-        /// <summary> 动画 </summary>
         public IUIAnimation UIAnimation => _stackNode.UIAnimation;
-
-        /// <summary> 是否暂停中 </summary>
         public bool IsPause => _stackNode.IsPause;
-
-        /// <summary> 是否被覆盖 </summary>
         public bool IsCovered => _stackNode.IsCovered;
-
-        /// <summary> 是否隐藏中 </summary>
         public bool IsHidden => _stackNode.IsHidden;
-
-        /// <summary> 是否正在关闭 </summary>
         public bool IsClosing => _stackNode.IsClosing;
-
-        /// <summary> 是否已关闭 </summary>
         public bool IsClosed => _stackNode.IsClosed;
 
-        /// <summary> UIWidgets </summary>
         private readonly List<UIWidget> _widgets = new();
-
         private UIStackNode _stackNode;
-        private bool _hasCreated = false;
+        private bool _hasCreated;
         private long _animUniqueId;
 
         public void Init(UIStackNode stackNode)
         {
             _stackNode = stackNode;
+            AutoBindComponents();
+            BindComponents();
             if (_hasCreated) return;
             _hasCreated = true;
             OnCreate();
         }
 
-        public void Open(params object[] args)
+        internal virtual void OnOpenInternal(object[] args)
         {
-            OnOpen(args);
+            if (!TryInvokeTypedOpen(args))
+            {
+                OnOpen();
+            }
+            NotifyWidgetsOpen();
+        }
+
+        protected void NotifyWidgetsOpen()
+        {
+            for (int i = 0; i < _widgets.Count; i++)
+            {
+                _widgets[i].NotifyOpen();
+            }
+        }
+
+        internal void OnMessageInternal(string msg, object[] args) => OnMessage(msg, args);
+
+        internal virtual void AutoBindComponents() { }
+
+        protected virtual void BindComponents() { }
+
+        internal void OnPauseInternal(bool pause)
+        {
+            if (pause)
+            {
+                OnPause();
+                for (int i = 0; i < _widgets.Count; i++)
+                {
+                    _widgets[i].NotifyPause();
+                }
+            }
+            else
+            {
+                OnResume();
+                for (int i = 0; i < _widgets.Count; i++)
+                {
+                    _widgets[i].NotifyResume();
+                }
+            }
+        }
+
+        internal void OnCoverInternal(bool covered)
+        {
+            if (covered) OnCovered();
+            else OnUncovered();
         }
 
         public void Show(bool withAnimation = true, Action onComplete = null)
         {
             OnBeforeShow();
             SetInteractable(false);
-            if (withAnimation && (UIAnimation != null))
+            if (withAnimation && UIAnimation != null)
             {
                 UIAnimation.Stop(_animUniqueId);
                 _animUniqueId = UIAnimation.PlayOpen(GameObject, OnPlayEnd);
@@ -83,6 +104,10 @@ namespace MUFramework
                 SetInteractable(true);
                 GameObject.SetActive(true);
                 OnShow();
+                for (int i = 0; i < _widgets.Count; i++)
+                {
+                    _widgets[i].NotifyShow();
+                }
                 onComplete?.Invoke();
             }
         }
@@ -91,7 +116,7 @@ namespace MUFramework
         {
             OnBeforeHide();
             SetInteractable(false);
-            if (withAnimation && (UIAnimation != null))
+            if (withAnimation && UIAnimation != null)
             {
                 UIAnimation.Stop(_animUniqueId);
                 _animUniqueId = UIAnimation.PlayClose(GameObject, OnPlayEnd);
@@ -105,15 +130,24 @@ namespace MUFramework
             {
                 GameObject.SetActive(false);
                 OnHide();
+                for (int i = 0; i < _widgets.Count; i++)
+                {
+                    _widgets[i].NotifyHide();
+                }
                 onComplete?.Invoke();
             }
         }
 
-        public void Resume()
+        public void Close(bool withAnimation = true, Action onComplete = null)
+            => UIManager.Instance.Close(UniqueId, withAnimation, onComplete);
+
+        internal void CompleteClose()
         {
-            if (!IsPause) return;
-            _stackNode.UnsetState(UIState.Paused);
-            OnResume();
+            OnClose();
+            for (int i = 0; i < _widgets.Count; i++)
+            {
+                _widgets[i].NotifyClose();
+            }
         }
 
         public void Update(float deltaTime)
@@ -130,13 +164,6 @@ namespace MUFramework
             OnUpdatePerSecond();
         }
 
-        public void Pause()
-        {
-            if (IsPause) return;
-            _stackNode.SetState(UIState.Paused);
-            OnPause();
-        }
-
         public void Destroy()
         {
             OnDestroy();
@@ -147,28 +174,12 @@ namespace MUFramework
             _widgets.Clear();
         }
 
-        /// <summary>
-        /// 关闭窗口
-        /// </summary>
-        public void Close(bool withAnimation = true, Action onComplete = null)
-        {
-            UIManager.Instance.Close(UniqueId, withAnimation, onComplete);
-        }
-
         public void SetInteractable(bool interactable)
         {
             if (CanvasGroup == null) return;
             CanvasGroup.interactable = interactable;
             CanvasGroup.blocksRaycasts = interactable;
         }
-
-        /// <summary> 完成关闭：仅内部UIManager调用 </summary>
-        internal void CompleteClose()
-        {
-            OnClose();
-        }
-
-        // ===== 附加的Widgets =====
 
         public void AttachWidget(UIWidget widget)
         {
@@ -177,35 +188,71 @@ namespace MUFramework
             widget.AttachTo(this);
         }
 
-        // ===== 子类重写生命周期回调 =====
-
-        /// <summary> 创建时调用 </summary>
         protected virtual void OnCreate() { }
-        /// <summary> 打开时调用 </summary>
-        protected virtual void OnOpen(params object[] args) { }
-        /// <summary> 显示前调用(如果有动画，则动画播放前调用) </summary>
+        protected virtual void OnOpen() { }
         protected virtual void OnBeforeShow() { }
-        /// <summary> 显示时调用(如果有动画，则动画播放完成后调用) </summary>
         protected virtual void OnShow() { }
-        /// <summary> 恢复时调用 </summary>
         protected virtual void OnResume() { }
-        /// <summary> 未被覆盖时调用 </summary>
-        internal virtual void OnUncover() { }
-        /// <summary> 更新时调用 </summary>
+        protected virtual void OnCovered() { }
+        protected virtual void OnUncovered() { }
         protected virtual void OnUpdate(float deltaTime) { }
-        /// <summary> 每秒更新时调用(通用逻辑) </summary>
         protected virtual void OnUpdatePerSecond() { }
-        /// <summary> 被覆盖时调用 </summary>
-        internal virtual void OnCovere() { }
-        /// <summary> 暂停时调用 </summary>
         protected virtual void OnPause() { }
-        /// <summary> 隐藏前调用(如果有动画，则动画播放前调用) </summary>
         protected virtual void OnBeforeHide() { }
-        /// <summary> 隐藏时调用 </summary>
         protected virtual void OnHide() { }
-        /// <summary> 关闭时调用(仅内部调用，外部关闭界面统一使用UIManager.Instance.Close) </summary>
         protected virtual void OnClose() { }
-        /// <summary> 销毁时调用 </summary>
         protected virtual void OnDestroy() { }
+        protected virtual void OnMessage(string msg, params object[] args) { }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        internal void OnOpenInternal_ForTest(object[] args) => OnOpenInternal(args);
+        internal void OnPauseInternal_ForTest(bool pause) => OnPauseInternal(pause);
+#endif
+
+        private bool TryInvokeTypedOpen(object[] args)
+        {
+            if (args == null || args.Length == 0 || args.Length > 5) return false;
+            var interfaces = GetType().GetInterfaces();
+            for (int i = 0; i < interfaces.Length; i++)
+            {
+                var interfaceType = interfaces[i];
+                if (!interfaceType.IsGenericType) continue;
+                var definition = interfaceType.GetGenericTypeDefinition();
+                if (definition != typeof(IOpenArgs<>) &&
+                    definition != typeof(IOpenArgs<,>) &&
+                    definition != typeof(IOpenArgs<,,>) &&
+                    definition != typeof(IOpenArgs<,,,>) &&
+                    definition != typeof(IOpenArgs<,,,,>))
+                {
+                    continue;
+                }
+                var genericArgs = interfaceType.GetGenericArguments();
+                if (genericArgs.Length != args.Length) continue;
+                if (!CanAcceptArgs(genericArgs, args)) continue;
+                interfaceType.GetMethod(nameof(OnOpen))?.Invoke(this, args);
+                return true;
+            }
+            return false;
+        }
+
+        private static bool CanAcceptArgs(Type[] parameterTypes, object[] args)
+        {
+            for (int i = 0; i < parameterTypes.Length; i++)
+            {
+                if (args[i] == null)
+                {
+                    if (parameterTypes[i].IsValueType && Nullable.GetUnderlyingType(parameterTypes[i]) == null)
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+                if (!parameterTypes[i].IsAssignableFrom(args[i].GetType()))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }
