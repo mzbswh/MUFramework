@@ -128,11 +128,16 @@ namespace MUFramework
         {
             var uniqueId = GenerateUniqueId();
             _asyncOpenCallbacks[uniqueId] = callback;
+            var completed = false;
             var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, window =>
             {
+                completed = true;
                 CompleteAsyncOpen(uniqueId, window);
             }, args));
-            _asyncOpenCoroutines[uniqueId] = coroutine;
+            if (!completed)
+            {
+                _asyncOpenCoroutines[uniqueId] = coroutine;
+            }
             return uniqueId;
         }
 
@@ -140,11 +145,16 @@ namespace MUFramework
         {
             var uniqueId = GenerateUniqueId();
             _asyncOpenCallbacks[uniqueId] = window => callback?.Invoke(window as TWindow);
+            var completed = false;
             var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, window =>
             {
+                completed = true;
                 CompleteAsyncOpen(uniqueId, window);
             }, args));
-            _asyncOpenCoroutines[uniqueId] = coroutine;
+            if (!completed)
+            {
+                _asyncOpenCoroutines[uniqueId] = coroutine;
+            }
             return uniqueId;
         }
 
@@ -206,7 +216,8 @@ namespace MUFramework
                 yield break;
             }
             node.AttachGameObject(obj);
-            callback?.Invoke(OpenCore(node, args));
+            var opened = OpenCore(node, args);
+            callback?.Invoke(opened);
         }
 
         private UIWindow OpenCore(UIStackNode node, params object[] args)

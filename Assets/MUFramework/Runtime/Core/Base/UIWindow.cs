@@ -26,6 +26,7 @@ namespace MUFramework
         private long _uniqueId;
         private bool _hasCreated;
         private long _animUniqueId;
+        private int _animationVersion;
 
         public void Init(UIStackNode stackNode)
         {
@@ -89,54 +90,108 @@ namespace MUFramework
 
         public void Show(bool withAnimation = true, Action onComplete = null)
         {
+            var target = GameObject;
+            if (target == null)
+            {
+                onComplete?.Invoke();
+                return;
+            }
+
             OnBeforeShow();
             SetInteractable(false);
+            target.SetActive(true);
+            var version = BeginAnimation();
+
             if (withAnimation && UIAnimation != null)
             {
-                UIAnimation.Stop(_animUniqueId);
-                _animUniqueId = UIAnimation.PlayOpen(GameObject, OnPlayEnd);
+                PlayAnimation(
+                    play: complete => UIAnimation.PlayOpen(target, complete),
+                    complete: () => CompleteShow(version, onComplete));
             }
             else
             {
-                OnPlayEnd();
+                CompleteShow(version, onComplete);
             }
+        }
 
-            void OnPlayEnd()
+        private void CompleteShow(int version, Action onComplete)
+        {
+            if (!IsCurrentAnimation(version)) return;
+            _animUniqueId = 0;
+            SetInteractable(true);
+            GameObject.SetActive(true);
+            OnShow();
+            for (int i = 0; i < _widgets.Count; i++)
             {
-                SetInteractable(true);
-                GameObject.SetActive(true);
-                OnShow();
-                for (int i = 0; i < _widgets.Count; i++)
-                {
-                    _widgets[i].NotifyShow();
-                }
-                onComplete?.Invoke();
+                _widgets[i].NotifyShow();
             }
+            onComplete?.Invoke();
         }
 
         public void Hide(bool withAnimation = true, Action onComplete = null)
         {
+            var target = GameObject;
+            if (target == null)
+            {
+                onComplete?.Invoke();
+                return;
+            }
+
             OnBeforeHide();
             SetInteractable(false);
+            var version = BeginAnimation();
+
             if (withAnimation && UIAnimation != null)
             {
-                UIAnimation.Stop(_animUniqueId);
-                _animUniqueId = UIAnimation.PlayClose(GameObject, OnPlayEnd);
+                PlayAnimation(
+                    play: complete => UIAnimation.PlayClose(target, complete),
+                    complete: () => CompleteHide(version, onComplete));
             }
             else
             {
-                OnPlayEnd();
+                CompleteHide(version, onComplete);
             }
+        }
 
-            void OnPlayEnd()
+        private void CompleteHide(int version, Action onComplete)
+        {
+            if (!IsCurrentAnimation(version)) return;
+            _animUniqueId = 0;
+            GameObject.SetActive(false);
+            OnHide();
+            for (int i = 0; i < _widgets.Count; i++)
             {
-                GameObject.SetActive(false);
-                OnHide();
-                for (int i = 0; i < _widgets.Count; i++)
+                _widgets[i].NotifyHide();
+            }
+            onComplete?.Invoke();
+        }
+
+        private int BeginAnimation()
+        {
+            UIAnimation?.Stop(_animUniqueId);
+            _animUniqueId = 0;
+            return ++_animationVersion;
+        }
+
+        private bool IsCurrentAnimation(int version)
+            => _stackNode != null && _animationVersion == version;
+
+        private void PlayAnimation(Func<Action, long> play, Action complete)
+        {
+            var completed = false;
+            try
+            {
+                var id = play(() =>
                 {
-                    _widgets[i].NotifyHide();
-                }
-                onComplete?.Invoke();
+                    completed = true;
+                    complete();
+                });
+                _animUniqueId = completed ? 0 : id;
+            }
+            catch (Exception e)
+            {
+                UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"[MUI] UI animation failed: {e}");
+                complete();
             }
         }
 
@@ -168,6 +223,9 @@ namespace MUFramework
 
         public void Destroy()
         {
+            UIAnimation?.Stop(_animUniqueId);
+            _animUniqueId = 0;
+            _animationVersion++;
             OnDestroy();
             for (int i = 0; i < _widgets.Count; i++)
             {

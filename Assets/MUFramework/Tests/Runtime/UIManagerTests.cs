@@ -344,7 +344,7 @@ namespace MUFramework.Tests
         {
             UIWindow result = null;
             _manager.OpenAsync(MakeConfig("TestWindow"), w => result = w);
-            for (int i = 0; i < 10 && result == null; i++)
+            for (int i = 0; i < 100 && result == null; i++)
             {
                 yield return null;
             }
@@ -355,10 +355,11 @@ namespace MUFramework.Tests
         [UnityTest]
         public IEnumerator OpenAsync_Cancel_BeforeLoad_CallbackWithNull()
         {
+            _manager.SetResourceLoader(new DelayedTestResourceLoader());
             UIWindow result = new TestWindow(); // 非 null 哨兵
             long uid = _manager.OpenAsync(MakeConfig("TestWindow"), w => result = w);
             _manager.Close(uid, withAnimation: false);
-            for (int i = 0; i < 10 && result != null; i++)
+            for (int i = 0; i < 100 && result != null; i++)
             {
                 yield return null;
             }

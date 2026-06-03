@@ -41,6 +41,27 @@ namespace MUFramework.Tests
             _window.OnOpenInternal(args);
         }
 
+        private ManualUIAnimation UseManualAnimation()
+        {
+            if (_go != null)
+            {
+                Object.DestroyImmediate(_go);
+            }
+
+            var animation = new ManualUIAnimation();
+            var config = WindowOpenConfig.Default;
+            config.WindowId = "TestWindow";
+            config.UIAnimation = animation;
+
+            _window = new TestWindow();
+            _node = new UIStackNode();
+            _node.Initialize(config, _window, 1L);
+
+            _go = new GameObject("TestWindow");
+            _node.AttachGameObject(_go);
+            return animation;
+        }
+
         // ===== Init / OnCreate =====
 
         [Test]
@@ -111,6 +132,61 @@ namespace MUFramework.Tests
             _window.Show(withAnimation: false);
             _window.Hide(withAnimation: false);
             Assert.IsFalse(_go.activeSelf);
+        }
+
+        [Test]
+        public void Show_WithAnimation_ActivatesBeforePlayOpen()
+        {
+            var animation = UseManualAnimation();
+            InitWindow();
+            _go.SetActive(false);
+
+            _window.Show();
+
+            Assert.IsTrue(animation.OpenTargetWasActive);
+            Assert.IsTrue(_go.activeSelf);
+            Assert.AreEqual(0, _window.OnShowCount);
+
+            animation.CompleteOpen();
+
+            Assert.AreEqual(1, _window.OnShowCount);
+            Assert.IsTrue(_node.CanvasGroup.interactable);
+        }
+
+        [Test]
+        public void Hide_ThenShow_IgnoresStaleCloseCallback()
+        {
+            var animation = UseManualAnimation();
+            InitWindow();
+            _window.Show(withAnimation: false);
+
+            _window.Hide();
+            _window.Show();
+            animation.CompleteClose();
+
+            Assert.IsTrue(_go.activeSelf);
+            Assert.AreEqual(0, _window.OnHideCount);
+
+            animation.CompleteOpen();
+
+            Assert.IsTrue(_go.activeSelf);
+            Assert.AreEqual(2, _window.OnShowCount);
+        }
+
+        [Test]
+        public void SetHide_DoesNotPlayTransitionAnimation()
+        {
+            var animation = UseManualAnimation();
+            InitWindow();
+
+            _node.SetHide(true);
+            _node.SetHide(false);
+
+            Assert.AreEqual(0, animation.PlayOpenCount);
+            Assert.AreEqual(0, animation.PlayCloseCount);
+            Assert.AreEqual(1, _window.OnHideCount);
+            Assert.AreEqual(1, _window.OnShowCount);
+            Assert.IsTrue(_go.activeSelf);
         }
 
         // ===== Pause / Resume =====

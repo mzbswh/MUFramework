@@ -1,4 +1,5 @@
 using System.Collections;
+using System;
 using UnityEngine;
 using MUFramework;
 
@@ -89,11 +90,60 @@ namespace MUFramework.Tests
             return go;
         }
 
-        public IEnumerator LoadGameObjectAsync(string windowId, System.Action<GameObject> callback)
+        public virtual IEnumerator LoadGameObjectAsync(string windowId, System.Action<GameObject> callback)
         {
             callback?.Invoke(LoadGameObject(windowId));
-            yield return null;
+            yield break;
         }
+    }
+
+    public class DelayedTestResourceLoader : TestResourceLoader
+    {
+        public override IEnumerator LoadGameObjectAsync(string windowId, System.Action<GameObject> callback)
+        {
+            yield return null;
+            callback?.Invoke(LoadGameObject(windowId));
+        }
+    }
+
+    public class ManualUIAnimation : IUIAnimation
+    {
+        private long _nextId;
+        private Action _openComplete;
+        private Action _closeComplete;
+
+        public int PlayOpenCount;
+        public int PlayCloseCount;
+        public int StopCount;
+        public long LastStoppedId;
+        public bool OpenTargetWasActive;
+        public bool CloseTargetWasActive;
+
+        public long PlayOpen(GameObject target, Action completeCallback)
+        {
+            PlayOpenCount++;
+            OpenTargetWasActive = target != null && target.activeSelf;
+            _openComplete = completeCallback;
+            return ++_nextId;
+        }
+
+        public long PlayClose(GameObject target, Action completeCallback)
+        {
+            PlayCloseCount++;
+            CloseTargetWasActive = target != null && target.activeSelf;
+            _closeComplete = completeCallback;
+            return ++_nextId;
+        }
+
+        public void Stop(long id)
+        {
+            StopCount++;
+            LastStoppedId = id;
+        }
+
+        public void CompleteOpen() => _openComplete?.Invoke();
+
+        public void CompleteClose() => _closeComplete?.Invoke();
     }
 
     // 工厂方法映射 windowId -> Type，供 UIGlobal.GetWindowClassTypeFunc 使用

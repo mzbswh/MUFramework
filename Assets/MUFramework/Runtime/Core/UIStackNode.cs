@@ -131,7 +131,7 @@ namespace MUFramework
                 SetState(UIState.Hidden);
                 if (IsLoaded)
                 {
-                    Window.Hide();
+                    Window.Hide(withAnimation: false);
                 }
             }
             else
@@ -139,7 +139,7 @@ namespace MUFramework
                 UnsetState(UIState.Hidden);
                 if (IsLoaded)
                 {
-                    Window.Show();
+                    Window.Show(withAnimation: false);
                 }
             }
         }
