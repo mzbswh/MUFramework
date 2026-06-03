@@ -23,5 +23,15 @@ namespace MUFramework.Editor
         };
 
         public override IReadOnlyDictionary<string, Type> PrefixMap => _prefixMap;
+
+        public override string ToTargetClassName(UIBindingNamingContext context)
+        {
+            return ToPascalIdentifier(context != null ? context.RootGameObjectName : string.Empty);
+        }
+
+        public override string ToTargetNamespace(UIBindingNamingContext context)
+        {
+            return string.Empty;
+        }
     }
 }

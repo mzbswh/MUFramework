@@ -49,7 +49,7 @@ namespace MUFramework
             OwnerWindow = null;
         }
 
-        internal virtual void AutoBindComponents() { }
+        protected virtual void AutoBindComponents() { }
 
         protected virtual void BindComponents() { }
         protected virtual void OnCreate() { }

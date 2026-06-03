@@ -1,14 +1,13 @@
 using System;
 using UnityEngine;
 
-namespace MUFramework.Editor
+namespace MUFramework
 {
     [Serializable]
     public class UIBindingEntry
     {
         public string FieldName;
-        public string ComponentType;
-        public Component ComponentRef;
-        public string Path;
+        public string Type;
+        public GameObject GameObject;
     }
 }

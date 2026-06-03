@@ -58,7 +58,7 @@ namespace MUFramework
 
         internal void OnMessageInternal(string msg, object[] args) => OnMessage(msg, args);
 
-        internal virtual void AutoBindComponents() { }
+        protected virtual void AutoBindComponents() { }
 
         protected virtual void BindComponents() { }
 
