@@ -189,7 +189,7 @@ namespace MUFramework
                 node.SetUniqueId(uniqueId);
                 AddUIStackNode(node);
                 yield return null;
-                callback?.Invoke(OpenCore(node, args));
+                OpenCore(node, args, callback);
                 yield break;
             }
 
@@ -216,15 +216,15 @@ namespace MUFramework
                 yield break;
             }
             node.AttachGameObject(obj);
-            var opened = OpenCore(node, args);
-            callback?.Invoke(opened);
+            OpenCore(node, args, callback);
         }
 
-        private UIWindow OpenCore(UIStackNode node, params object[] args)
+        private UIWindow OpenCore(UIStackNode node, object[] args, Action<UIWindow> onShowComplete = null)
         {
             if (!_layerStacks.TryGetValue(node.OpenConfig.Layer, out var stack))
             {
                 UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"[MUI], OpenCore failed, target layer {node.OpenConfig.Layer} stack not found");
+                onShowComplete?.Invoke(null);
                 return null;
             }
 
@@ -239,8 +239,15 @@ namespace MUFramework
             UIGlobal.FireEvent(UIGlobal.UI_EVENT_WINDOW_OPEN, node.WindowId);
             if (!node.IsHidden)
             {
-                node.Window.Show();
-                UIGlobal.FireEvent(UIGlobal.UI_EVENT_WINDOW_SHOW, node.WindowId);
+                node.Window.Show(onComplete: () =>
+                {
+                    UIGlobal.FireEvent(UIGlobal.UI_EVENT_WINDOW_SHOW, node.WindowId);
+                    onShowComplete?.Invoke(node.Window);
+                });
+            }
+            else
+            {
+                onShowComplete?.Invoke(node.Window);
             }
             if (node.IsPause)
             {

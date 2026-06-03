@@ -37,6 +37,7 @@ namespace MUFramework.Tests
                 Object.DestroyImmediate(_manager.gameObject);
             }
             UIGlobal.LogHandler = null;
+            UIGlobal.UIEventHandler = null;
             UIGlobal.GetWindowClassTypeFunc = null;
             UIGlobal.GetWindowOpenConfigFunc = null;
         }
@@ -364,6 +365,52 @@ namespace MUFramework.Tests
                 yield return null;
             }
             Assert.IsNull(result);
+        }
+
+        [Test]
+        public void Open_ShowEvent_FiresAfterShowAnimationCompletes()
+        {
+            var animation = new ManualUIAnimation();
+            var c = MakeConfig("TestWindow");
+            c.UIAnimation = animation;
+            bool showEvent = false;
+            UIGlobal.UIEventHandler = (eventName, windowId) =>
+            {
+                if (eventName == UIGlobal.UI_EVENT_WINDOW_SHOW && windowId == "TestWindow")
+                {
+                    showEvent = true;
+                }
+            };
+
+            var window = _manager.Open(c) as TestWindow;
+
+            Assert.IsNotNull(window);
+            Assert.IsFalse(showEvent);
+            Assert.AreEqual(0, window.OnShowCount);
+
+            animation.CompleteOpen();
+
+            Assert.IsTrue(showEvent);
+            Assert.AreEqual(1, window.OnShowCount);
+        }
+
+        [UnityTest]
+        public IEnumerator OpenAsync_CallbackWaitsForShowAnimation()
+        {
+            var animation = new ManualUIAnimation();
+            var c = MakeConfig("TestWindow");
+            c.UIAnimation = animation;
+            UIWindow result = null;
+
+            _manager.OpenAsync(c, w => result = w);
+            yield return null;
+
+            Assert.IsNull(result);
+
+            animation.CompleteOpen();
+
+            Assert.IsNotNull(result);
+            Assert.IsInstanceOf<TestWindow>(result);
         }
 
         // ===== Layer isolation =====

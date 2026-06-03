@@ -154,6 +154,19 @@ namespace MUFramework.Tests
         }
 
         [Test]
+        public void Show_WithAnimation_IgnoresDuplicateCompletion()
+        {
+            var animation = UseManualAnimation();
+            InitWindow();
+
+            _window.Show();
+            animation.CompleteOpen();
+            animation.CompleteOpen();
+
+            Assert.AreEqual(1, _window.OnShowCount);
+        }
+
+        [Test]
         public void Hide_ThenShow_IgnoresStaleCloseCallback()
         {
             var animation = UseManualAnimation();

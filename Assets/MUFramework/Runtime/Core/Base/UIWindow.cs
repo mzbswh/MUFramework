@@ -179,19 +179,22 @@ namespace MUFramework
         private void PlayAnimation(Func<Action, long> play, Action complete)
         {
             var completed = false;
+            void CompleteOnce()
+            {
+                if (completed) return;
+                completed = true;
+                complete();
+            }
+
             try
             {
-                var id = play(() =>
-                {
-                    completed = true;
-                    complete();
-                });
+                var id = play(CompleteOnce);
                 _animUniqueId = completed ? 0 : id;
             }
             catch (Exception e)
             {
                 UIGlobal.LogHandler?.Invoke(LogLevel.Error, $"[MUI] UI animation failed: {e}");
-                complete();
+                CompleteOnce();
             }
         }
 
