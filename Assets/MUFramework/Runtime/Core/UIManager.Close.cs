@@ -35,6 +35,11 @@ namespace MUFramework
             StopCoroutine(coroutine);
             _asyncOpenCoroutines.Remove(uniqueId);
             RemoveUIStackNode(uniqueId);
+            if (_asyncOpenCallbacks.TryGetValue(uniqueId, out var callback))
+            {
+                _asyncOpenCallbacks.Remove(uniqueId);
+                callback?.Invoke(null);
+            }
             return true;
         }
 

@@ -49,6 +49,7 @@ namespace MUFramework
 
         /// <summary> 正在进行的异步打开操作列表（按UniqueId索引） </summary>
         private readonly Dictionary<long, Coroutine> _asyncOpenCoroutines = new();
+        private readonly Dictionary<long, Action<UIWindow>> _asyncOpenCallbacks = new();
 
         private readonly Dictionary<string, WindowRegistration> _registry = new();
 

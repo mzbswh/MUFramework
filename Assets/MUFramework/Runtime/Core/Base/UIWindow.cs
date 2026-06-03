@@ -9,26 +9,28 @@ namespace MUFramework
     /// </summary>
     public abstract class UIWindow
     {
-        public long UniqueId => _stackNode.UniqueId;
-        public GameObject GameObject => _stackNode.GameObject;
-        public Transform Transform => _stackNode.Transform;
-        public CanvasGroup CanvasGroup => _stackNode.CanvasGroup;
-        public Canvas Canvas => _stackNode.Canvas;
-        public IUIAnimation UIAnimation => _stackNode.UIAnimation;
-        public bool IsPause => _stackNode.IsPause;
-        public bool IsCovered => _stackNode.IsCovered;
-        public bool IsHidden => _stackNode.IsHidden;
-        public bool IsClosing => _stackNode.IsClosing;
-        public bool IsClosed => _stackNode.IsClosed;
+        public long UniqueId => _uniqueId;
+        public GameObject GameObject => _stackNode?.GameObject;
+        public Transform Transform => _stackNode?.Transform;
+        public CanvasGroup CanvasGroup => _stackNode?.CanvasGroup;
+        public Canvas Canvas => _stackNode?.Canvas;
+        public IUIAnimation UIAnimation => _stackNode?.UIAnimation;
+        public bool IsPause => _stackNode != null && _stackNode.IsPause;
+        public bool IsCovered => _stackNode != null && _stackNode.IsCovered;
+        public bool IsHidden => _stackNode != null && _stackNode.IsHidden;
+        public bool IsClosing => _stackNode != null && _stackNode.IsClosing;
+        public bool IsClosed => _stackNode == null || _stackNode.IsClosed;
 
         private readonly List<UIWidget> _widgets = new();
         private UIStackNode _stackNode;
+        private long _uniqueId;
         private bool _hasCreated;
         private long _animUniqueId;
 
         public void Init(UIStackNode stackNode)
         {
             _stackNode = stackNode;
+            _uniqueId = stackNode.UniqueId;
             AutoBindComponents();
             BindComponents();
             if (_hasCreated) return;
@@ -172,6 +174,7 @@ namespace MUFramework
                 _widgets[i].Destroy();
             }
             _widgets.Clear();
+            _stackNode = null;
         }
 
         public void SetInteractable(bool interactable)

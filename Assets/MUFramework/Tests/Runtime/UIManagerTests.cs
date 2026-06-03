@@ -344,8 +344,10 @@ namespace MUFramework.Tests
         {
             UIWindow result = null;
             _manager.OpenAsync(MakeConfig("TestWindow"), w => result = w);
-            yield return null; // 等待协程一帧
-            yield return null;
+            for (int i = 0; i < 10 && result == null; i++)
+            {
+                yield return null;
+            }
             Assert.IsNotNull(result);
             Assert.IsInstanceOf<TestWindow>(result);
         }
@@ -356,8 +358,10 @@ namespace MUFramework.Tests
             UIWindow result = new TestWindow(); // 非 null 哨兵
             long uid = _manager.OpenAsync(MakeConfig("TestWindow"), w => result = w);
             _manager.Close(uid, withAnimation: false);
-            yield return null;
-            yield return null;
+            for (int i = 0; i < 10 && result != null; i++)
+            {
+                yield return null;
+            }
             Assert.IsNull(result);
         }
 

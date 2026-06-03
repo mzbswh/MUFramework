@@ -127,10 +127,10 @@ namespace MUFramework
         public long OpenAsync(WindowOpenConfig openConfig, Action<UIWindow> callback, params object[] args)
         {
             var uniqueId = GenerateUniqueId();
+            _asyncOpenCallbacks[uniqueId] = callback;
             var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, window =>
             {
-                _asyncOpenCoroutines.Remove(uniqueId);
-                callback?.Invoke(window);
+                CompleteAsyncOpen(uniqueId, window);
             }, args));
             _asyncOpenCoroutines[uniqueId] = coroutine;
             return uniqueId;
@@ -139,10 +139,10 @@ namespace MUFramework
         public long OpenAsync<TWindow>(WindowOpenConfig openConfig, Action<TWindow> callback, params object[] args) where TWindow : UIWindow
         {
             var uniqueId = GenerateUniqueId();
+            _asyncOpenCallbacks[uniqueId] = window => callback?.Invoke(window as TWindow);
             var coroutine = StartCoroutine(OpenAsyncCoroutine(openConfig, uniqueId, window =>
             {
-                _asyncOpenCoroutines.Remove(uniqueId);
-                callback?.Invoke(window as TWindow);
+                CompleteAsyncOpen(uniqueId, window);
             }, args));
             _asyncOpenCoroutines[uniqueId] = coroutine;
             return uniqueId;
@@ -188,7 +188,11 @@ namespace MUFramework
             GameObject obj = null;
             if (_resourceLoader != null)
             {
-                yield return StartCoroutine(_resourceLoader.LoadGameObjectAsync(openConfig.WindowId, go => obj = go));
+                var loadRoutine = _resourceLoader.LoadGameObjectAsync(openConfig.WindowId, go => obj = go);
+                while (loadRoutine != null && loadRoutine.MoveNext())
+                {
+                    yield return loadRoutine.Current;
+                }
             }
             if (!ExistUI(uniqueId))
             {
@@ -236,6 +240,14 @@ namespace MUFramework
                 node.Window.OnCoverInternal(true);
             }
             return node.Window;
+        }
+
+        private void CompleteAsyncOpen(long uniqueId, UIWindow window)
+        {
+            _asyncOpenCoroutines.Remove(uniqueId);
+            if (!_asyncOpenCallbacks.TryGetValue(uniqueId, out var callback)) return;
+            _asyncOpenCallbacks.Remove(uniqueId);
+            callback?.Invoke(window);
         }
     }
 }
