@@ -12,4 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 684c9c0afb4341a897518233fd521231, type: 3}
   m_Name: MUIConfig
   m_EditorClassIdentifier: 
-  _generatedOutputPath: Assets/Scripts/UI/Generated/
+  _assetSavePath: Assets/Editor/MUFramework/
+  _generatedBindOutputPath: Assets/Scripts/UI/Generated/Bind/
+  _generatedScriptOutputPath: Assets/Scripts/UI/
+  _defaultNamespace: 

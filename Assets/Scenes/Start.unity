@@ -273,13 +273,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 713d0dfeb29b44877bff6c5c7ac6de2b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  TargetClassName: 
+  TargetBaseType: 0
+  TargetClassName: TestUI
   TargetNamespace: 
+  ScriptOutputDir: Assets/Scripts/UI/
   Entries:
   - FieldName: _imgicon
-    ComponentType: UnityEngine.UI.Image
-    ComponentRef: {fileID: 483695537}
-    Path: Img_icon
+    Type: UnityEngine.UI.Image
+    GameObject: {fileID: 483695535}
 --- !u!1 &483695535
 GameObject:
   m_ObjectHideFlags: 0

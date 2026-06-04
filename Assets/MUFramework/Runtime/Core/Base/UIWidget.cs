@@ -21,6 +21,7 @@ namespace MUFramework
             {
                 GameObject.GetOrAddComponent<UIWidgetMonoAdapter>().Init(this);
             }
+            AutoBindComponents();
             OnCreate();
             RefreshUI();
         }
@@ -77,6 +78,7 @@ namespace MUFramework
         internal void NotifyPause() { if (Inited) OnPause(); }
         internal void NotifyResume() { if (Inited) OnResume(); }
 
+        protected virtual void AutoBindComponents() { }
         protected virtual void OnCreate() { }
         protected virtual void OnOpen() { }
         protected virtual void OnClose() { }

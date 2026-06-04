@@ -9,25 +9,45 @@ namespace MUFramework.Editor
     [CustomEditor(typeof(UIBindingCollector))]
     public class UIBindingCollectorEditor : UnityEditor.Editor
     {
+        private SerializedProperty _targetBaseType;
         private SerializedProperty _targetClassName;
         private SerializedProperty _targetNamespace;
+        private SerializedProperty _scriptOutputDir;
         private SerializedProperty _entries;
 
         private void OnEnable()
         {
+            _targetBaseType = serializedObject.FindProperty(nameof(UIBindingCollector.TargetBaseType));
             _targetClassName = serializedObject.FindProperty(nameof(UIBindingCollector.TargetClassName));
             _targetNamespace = serializedObject.FindProperty(nameof(UIBindingCollector.TargetNamespace));
+            _scriptOutputDir = serializedObject.FindProperty(nameof(UIBindingCollector.ScriptOutputDir));
             _entries = serializedObject.FindProperty(nameof(UIBindingCollector.Entries));
 
-            AutoScanOnce((UIBindingCollector)target);
+            var collector = (UIBindingCollector)target;
+            ApplyTargetNamingIfEmpty(collector);
+            ApplyOutputDirIfEmpty(collector);
+        }
+
+        private static void ApplyOutputDirIfEmpty(UIBindingCollector collector)
+        {
+            if (collector == null || !string.IsNullOrWhiteSpace(collector.ScriptOutputDir)) return;
+            Undo.RecordObject(collector, "Apply UI Script Output Dir");
+            collector.ScriptOutputDir = MUIConfig.GetGeneratedScriptOutputPath();
+            EditorUtility.SetDirty(collector);
         }
 
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
 
-            EditorGUILayout.PropertyField(_targetClassName);
-            EditorGUILayout.PropertyField(_targetNamespace);
+            EditorGUILayout.PropertyField(_targetBaseType, new GUIContent("绑定类型"));
+            EditorGUILayout.PropertyField(_targetClassName, new GUIContent("目标类名"));
+            EditorGUILayout.PropertyField(_targetNamespace, new GUIContent("命名空间"));
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("输出目录（留空使用全局配置默认值）", EditorStyles.miniLabel);
+            EditorGUILayout.PropertyField(_scriptOutputDir, new GUIContent("脚本输出目录"));
+
             DrawEntries();
 
             serializedObject.ApplyModifiedProperties();
@@ -35,7 +55,7 @@ namespace MUFramework.Editor
             var collector = (UIBindingCollector)target;
 
             EditorGUILayout.Space();
-            if (GUILayout.Button("Scan & Generate Bindings"))
+            if (GUILayout.Button("扫描并生成绑定"))
             {
                 ScanAndGenerate(collector);
             }
@@ -46,44 +66,44 @@ namespace MUFramework.Editor
             var rule = UIGlobal.BindingNamingRule as UIBindingNamingRule ?? new DefaultUIBindingNamingRule();
             ScanBindings(collector, rule);
 
-            var outputDir = MUIConfig.GetGeneratedOutputPath();
-            UIBindingCodeGenerator.Generate(collector, outputDir);
+            var scriptOutputDir = string.IsNullOrWhiteSpace(collector.ScriptOutputDir)
+                ? MUIConfig.GetGeneratedScriptOutputPath()
+                : MUIConfig.NormalizeAssetPath(collector.ScriptOutputDir);
+            UIWindowCodeGenerator.GenerateIfMissing(collector, scriptOutputDir);
+
+
+            UIBindingCodeGenerator.Generate(collector, MUIConfig.GetGeneratedBindOutputPath());
         }
 
-        private static void AutoScanOnce(UIBindingCollector collector)
+        // Only fills TargetClassName / TargetNamespace if they are empty; never scans entries.
+        private static void ApplyTargetNamingIfEmpty(UIBindingCollector collector)
         {
-            if (collector == null || collector.HasAutoScanned)
+            if (collector == null) return;
+            if (!string.IsNullOrEmpty(collector.TargetClassName) &&
+                !string.IsNullOrEmpty(collector.TargetNamespace))
             {
                 return;
             }
 
             var rule = UIGlobal.BindingNamingRule as UIBindingNamingRule ?? new DefaultUIBindingNamingRule();
-            Undo.RecordObject(collector, "Auto Scan UI Bindings");
-            ScanBindings(collector, rule);
-            collector.HasAutoScanned = true;
+            Undo.RecordObject(collector, "Apply UI Target Naming");
+            ApplyTargetNaming(collector, rule);
             EditorUtility.SetDirty(collector);
         }
 
         private static void ScanBindings(UIBindingCollector collector, UIBindingNamingRule rule)
         {
-            if (collector == null)
-            {
-                return;
-            }
+            if (collector == null) return;
 
             ApplyTargetNaming(collector, rule);
             collector.Entries.Clear();
             ScanChildren(collector.transform, collector.transform, collector, rule);
-            collector.HasAutoScanned = true;
             EditorUtility.SetDirty(collector);
         }
 
         public static void ApplyTargetNaming(UIBindingCollector collector, UIBindingNamingRule rule)
         {
-            if (collector == null)
-            {
-                return;
-            }
+            if (collector == null) return;
 
             rule ??= new DefaultUIBindingNamingRule();
             var context = UIBindingNamingContext.FromCollector(collector);
@@ -94,7 +114,12 @@ namespace MUFramework.Editor
 
             if (string.IsNullOrEmpty(collector.TargetNamespace))
             {
-                collector.TargetNamespace = rule.ToTargetNamespace(context) ?? string.Empty;
+                var ns = rule.ToTargetNamespace(context);
+                if (string.IsNullOrEmpty(ns))
+                {
+                    ns = MUIConfig.GetDefaultNamespace();
+                }
+                collector.TargetNamespace = ns ?? string.Empty;
             }
         }
 
@@ -134,7 +159,7 @@ namespace MUFramework.Editor
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    EditorGUILayout.LabelField($"Entries ({_entries.arraySize})", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField($"绑定条目 ({_entries.arraySize})", EditorStyles.boldLabel);
                     GUILayout.FlexibleSpace();
                     if (GUILayout.Button("+", GUILayout.Width(28)))
                     {
@@ -144,7 +169,7 @@ namespace MUFramework.Editor
 
                 if (_entries.arraySize == 0)
                 {
-                    EditorGUILayout.HelpBox("No binding entries. Scan children or add one manually.", MessageType.Info);
+                    EditorGUILayout.HelpBox("暂无绑定条目，点击\"扫描并生成绑定\"或手动添加。", MessageType.Info);
                     return;
                 }
 
@@ -183,7 +208,7 @@ namespace MUFramework.Editor
             if (isMissingComponent)
             {
                 EditorGUILayout.HelpBox(
-                    $"'{selectedGameObject.name}' does not contain component '{GetTypeDisplayName(typeDropdown.stringValue)}'.",
+                    $"'{selectedGameObject.name}' 上未找到组件 '{GetTypeDisplayName(typeDropdown.stringValue)}'。",
                     MessageType.Warning);
             }
         }
@@ -228,40 +253,21 @@ namespace MUFramework.Editor
 
         private static bool HasRequiredComponent(GameObject gameObject, Type componentType)
         {
-            if (gameObject == null || componentType == null)
-            {
-                return false;
-            }
-
-            if (componentType == typeof(GameObject))
-            {
-                return true;
-            }
-
+            if (gameObject == null || componentType == null) return false;
+            if (componentType == typeof(GameObject)) return true;
             return gameObject.GetComponent(componentType) != null;
         }
 
         private static Type ResolveType(string typeName)
         {
-            if (string.IsNullOrEmpty(typeName))
-            {
-                return null;
-            }
-
-            if (typeName == typeof(GameObject).FullName)
-            {
-                return typeof(GameObject);
-            }
+            if (string.IsNullOrEmpty(typeName)) return null;
+            if (typeName == typeof(GameObject).FullName) return typeof(GameObject);
 
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 var type = assembly.GetType(typeName);
-                if (type != null)
-                {
-                    return type;
-                }
+                if (type != null) return type;
             }
-
             return null;
         }
 
