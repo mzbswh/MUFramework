@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,12 +10,12 @@ namespace MUFramework.Editor
         private static readonly Dictionary<string, Type> _prefixMap = new()
         {
             { "Btn_", typeof(Button) },
-            { "Txt_", typeof(TMP_Text) },
+            { "Txt_", typeof(Text) },
             { "Img_", typeof(Image) },
             { "Raw_", typeof(RawImage) },
             { "Sld_", typeof(Slider) },
             { "Tog_", typeof(Toggle) },
-            { "Inp_", typeof(TMP_InputField) },
+            { "Inp_", typeof(InputField) },
             { "Scr_", typeof(ScrollRect) },
             { "Rect_", typeof(RectTransform) },
             { "Go_", typeof(GameObject) },
