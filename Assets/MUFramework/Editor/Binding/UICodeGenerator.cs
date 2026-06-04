@@ -5,13 +5,13 @@ using UnityEngine;
 
 namespace MUFramework.Editor
 {
-    public static class UIWindowCodeGenerator
+    public static class UICodeGenerator
     {
         /// <summary>
         /// Generates the main class file if it does not already exist on disk.
         /// Returns true if a file was written.
         /// </summary>
-        public static bool GenerateIfMissing(UIBindingCollector collector, string outputDir)
+        public static bool GenerateIfMissing(UIAutoGenerator collector, string outputDir)
         {
             if (collector == null || string.IsNullOrEmpty(collector.TargetClassName)) return false;
 

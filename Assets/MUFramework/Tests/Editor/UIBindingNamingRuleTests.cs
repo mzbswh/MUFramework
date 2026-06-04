@@ -22,7 +22,7 @@ namespace MUFramework.Editor.Tests
         public void DefaultRuleGeneratesTargetClassNameFromRootGameObjectName()
         {
             var rule = new DefaultUIBindingNamingRule();
-            var context = new UIBindingNamingContext(
+            var context = new UIGeneratorContext(
                 "Inventory Window-Root",
                 null,
                 null);
@@ -42,14 +42,14 @@ namespace MUFramework.Editor.Tests
             var root = new GameObject("InventoryWindow");
             try
             {
-                var collector = root.AddComponent<UIBindingCollector>();
+                var collector = root.AddComponent<UIAutoGenerator>();
                 PrefabUtility.SaveAsPrefabAsset(root, TempPrefabPath);
                 UnityEngine.Object.DestroyImmediate(root);
 
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TempPrefabPath);
-                collector = prefab.GetComponent<UIBindingCollector>();
+                collector = prefab.GetComponent<UIAutoGenerator>();
 
-                var context = UIBindingNamingContext.FromCollector(collector);
+                var context = UIGeneratorContext.FromCollector(collector);
 
                 Assert.AreEqual("InventoryWindow", context.RootGameObjectName);
                 Assert.AreEqual(TempPrefabPath, context.PrefabAssetPath);
@@ -70,11 +70,11 @@ namespace MUFramework.Editor.Tests
             var root = new GameObject("InventoryWindow");
             try
             {
-                var collector = root.AddComponent<UIBindingCollector>();
+                var collector = root.AddComponent<UIAutoGenerator>();
                 collector.TargetClassName = "OldClass";
                 collector.TargetNamespace = "Old.Namespace";
 
-                UIBindingCollectorEditor.ApplyTargetNaming(collector, new FixedTargetNamingRule());
+                UIAutoGeneratorEditor.ApplyTargetNaming(collector, new FixedTargetNamingRule());
 
                 Assert.AreEqual("OldClass", collector.TargetClassName);
                 Assert.AreEqual("Old.Namespace", collector.TargetNamespace);
@@ -91,11 +91,11 @@ namespace MUFramework.Editor.Tests
             var root = new GameObject("InventoryWindow");
             try
             {
-                var collector = root.AddComponent<UIBindingCollector>();
+                var collector = root.AddComponent<UIAutoGenerator>();
                 collector.TargetClassName = string.Empty;
                 collector.TargetNamespace = "Old.Namespace";
 
-                UIBindingCollectorEditor.ApplyTargetNaming(collector, new FixedTargetNamingRule());
+                UIAutoGeneratorEditor.ApplyTargetNaming(collector, new FixedTargetNamingRule());
 
                 Assert.AreEqual("GeneratedClass", collector.TargetClassName);
                 Assert.AreEqual("Old.Namespace", collector.TargetNamespace);
@@ -103,7 +103,7 @@ namespace MUFramework.Editor.Tests
                 collector.TargetClassName = "OldClass";
                 collector.TargetNamespace = string.Empty;
 
-                UIBindingCollectorEditor.ApplyTargetNaming(collector, new FixedTargetNamingRule());
+                UIAutoGeneratorEditor.ApplyTargetNaming(collector, new FixedTargetNamingRule());
 
                 Assert.AreEqual("OldClass", collector.TargetClassName);
                 Assert.AreEqual("Generated.Namespace", collector.TargetNamespace);
@@ -118,7 +118,7 @@ namespace MUFramework.Editor.Tests
         public void CustomRuleCanGenerateTargetNamesFromContext()
         {
             var rule = new PrefabDirectoryNamingRule();
-            var context = new UIBindingNamingContext(
+            var context = new UIGeneratorContext(
                 "InventoryWindow",
                 "Assets/Game/UI/Windows/InventoryWindow.prefab",
                 "Assets/Game/UI/Windows");
@@ -131,12 +131,12 @@ namespace MUFramework.Editor.Tests
         {
             public override IReadOnlyDictionary<string, Type> PrefixMap { get; } = new Dictionary<string, Type>();
 
-            public override string ToTargetClassName(UIBindingNamingContext context)
+            public override string ToTargetClassName(UIGeneratorContext context)
             {
                 return context.RootGameObjectName + "Binder";
             }
 
-            public override string ToTargetNamespace(UIBindingNamingContext context)
+            public override string ToTargetNamespace(UIGeneratorContext context)
             {
                 return context.PrefabDirectory.Replace("Assets/", "").Replace("/", ".");
             }
@@ -146,12 +146,12 @@ namespace MUFramework.Editor.Tests
         {
             public override IReadOnlyDictionary<string, Type> PrefixMap { get; } = new Dictionary<string, Type>();
 
-            public override string ToTargetClassName(UIBindingNamingContext context)
+            public override string ToTargetClassName(UIGeneratorContext context)
             {
                 return "GeneratedClass";
             }
 
-            public override string ToTargetNamespace(UIBindingNamingContext context)
+            public override string ToTargetNamespace(UIGeneratorContext context)
             {
                 return "Generated.Namespace";
             }

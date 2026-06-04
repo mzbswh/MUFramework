@@ -6,8 +6,8 @@ using UnityEngine;
 
 namespace MUFramework.Editor
 {
-    [CustomEditor(typeof(UIBindingCollector))]
-    public class UIBindingCollectorEditor : UnityEditor.Editor
+    [CustomEditor(typeof(UIAutoGenerator))]
+    public class UIAutoGeneratorEditor : UnityEditor.Editor
     {
         private SerializedProperty _targetBaseType;
         private SerializedProperty _targetClassName;
@@ -17,18 +17,18 @@ namespace MUFramework.Editor
 
         private void OnEnable()
         {
-            _targetBaseType = serializedObject.FindProperty(nameof(UIBindingCollector.TargetBaseType));
-            _targetClassName = serializedObject.FindProperty(nameof(UIBindingCollector.TargetClassName));
-            _targetNamespace = serializedObject.FindProperty(nameof(UIBindingCollector.TargetNamespace));
-            _scriptOutputDir = serializedObject.FindProperty(nameof(UIBindingCollector.ScriptOutputDir));
-            _entries = serializedObject.FindProperty(nameof(UIBindingCollector.Entries));
+            _targetBaseType = serializedObject.FindProperty(nameof(UIAutoGenerator.TargetBaseType));
+            _targetClassName = serializedObject.FindProperty(nameof(UIAutoGenerator.TargetClassName));
+            _targetNamespace = serializedObject.FindProperty(nameof(UIAutoGenerator.TargetNamespace));
+            _scriptOutputDir = serializedObject.FindProperty(nameof(UIAutoGenerator.ScriptOutputDir));
+            _entries = serializedObject.FindProperty(nameof(UIAutoGenerator.Entries));
 
-            var collector = (UIBindingCollector)target;
+            var collector = (UIAutoGenerator)target;
             ApplyTargetNamingIfEmpty(collector);
             ApplyOutputDirIfEmpty(collector);
         }
 
-        private static void ApplyOutputDirIfEmpty(UIBindingCollector collector)
+        private static void ApplyOutputDirIfEmpty(UIAutoGenerator collector)
         {
             if (collector == null || !string.IsNullOrWhiteSpace(collector.ScriptOutputDir)) return;
             Undo.RecordObject(collector, "Apply UI Script Output Dir");
@@ -52,7 +52,7 @@ namespace MUFramework.Editor
 
             serializedObject.ApplyModifiedProperties();
 
-            var collector = (UIBindingCollector)target;
+            var collector = (UIAutoGenerator)target;
 
             EditorGUILayout.Space();
             if (GUILayout.Button("扫描并生成绑定"))
@@ -61,7 +61,7 @@ namespace MUFramework.Editor
             }
         }
 
-        private static void ScanAndGenerate(UIBindingCollector collector)
+        private static void ScanAndGenerate(UIAutoGenerator collector)
         {
             var rule = UIGlobal.BindingNamingRule as UIBindingNamingRule ?? new DefaultUIBindingNamingRule();
             ScanBindings(collector, rule);
@@ -69,14 +69,14 @@ namespace MUFramework.Editor
             var scriptOutputDir = string.IsNullOrWhiteSpace(collector.ScriptOutputDir)
                 ? MUIConfig.GetGeneratedScriptOutputPath()
                 : MUIConfig.NormalizeAssetPath(collector.ScriptOutputDir);
-            UIWindowCodeGenerator.GenerateIfMissing(collector, scriptOutputDir);
+            UICodeGenerator.GenerateIfMissing(collector, scriptOutputDir);
 
 
             UIBindingCodeGenerator.Generate(collector, MUIConfig.GetGeneratedBindOutputPath());
         }
 
         // Only fills TargetClassName / TargetNamespace if they are empty; never scans entries.
-        private static void ApplyTargetNamingIfEmpty(UIBindingCollector collector)
+        private static void ApplyTargetNamingIfEmpty(UIAutoGenerator collector)
         {
             if (collector == null) return;
             if (!string.IsNullOrEmpty(collector.TargetClassName) &&
@@ -91,7 +91,7 @@ namespace MUFramework.Editor
             EditorUtility.SetDirty(collector);
         }
 
-        private static void ScanBindings(UIBindingCollector collector, UIBindingNamingRule rule)
+        private static void ScanBindings(UIAutoGenerator collector, UIBindingNamingRule rule)
         {
             if (collector == null) return;
 
@@ -101,12 +101,12 @@ namespace MUFramework.Editor
             EditorUtility.SetDirty(collector);
         }
 
-        public static void ApplyTargetNaming(UIBindingCollector collector, UIBindingNamingRule rule)
+        public static void ApplyTargetNaming(UIAutoGenerator collector, UIBindingNamingRule rule)
         {
             if (collector == null) return;
 
             rule ??= new DefaultUIBindingNamingRule();
-            var context = UIBindingNamingContext.FromCollector(collector);
+            var context = UIGeneratorContext.FromCollector(collector);
             if (string.IsNullOrEmpty(collector.TargetClassName))
             {
                 collector.TargetClassName = rule.ToTargetClassName(context) ?? string.Empty;
@@ -126,7 +126,7 @@ namespace MUFramework.Editor
         private static void ScanChildren(
             Transform root,
             Transform current,
-            UIBindingCollector collector,
+            UIAutoGenerator collector,
             UIBindingNamingRule rule)
         {
             foreach (Transform child in current)

@@ -11,7 +11,7 @@ namespace MUFramework
     }
 
     [DisallowMultipleComponent]
-    public class UIBindingCollector : MonoBehaviour
+    public class UIAutoGenerator : MonoBehaviour
     {
         public UIBindingTargetType TargetBaseType = UIBindingTargetType.Window;
         public string TargetClassName;

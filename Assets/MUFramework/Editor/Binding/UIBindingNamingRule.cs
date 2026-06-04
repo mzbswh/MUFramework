@@ -9,9 +9,9 @@ namespace MUFramework.Editor
     {
         public abstract IReadOnlyDictionary<string, Type> PrefixMap { get; }
 
-        public abstract string ToTargetClassName(UIBindingNamingContext context);
+        public abstract string ToTargetClassName(UIGeneratorContext context);
 
-        public abstract string ToTargetNamespace(UIBindingNamingContext context);
+        public abstract string ToTargetNamespace(UIGeneratorContext context);
 
         // 字段命名：Img_Icon -> _img_icon
         public virtual string ToFieldName(string nodeName, string matchedPrefix)

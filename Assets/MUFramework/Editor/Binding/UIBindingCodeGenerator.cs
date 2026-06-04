@@ -8,7 +8,7 @@ namespace MUFramework.Editor
 {
     public static class UIBindingCodeGenerator
     {
-        public static void Generate(UIBindingCollector collector, string outputDir)
+        public static void Generate(UIAutoGenerator collector, string outputDir)
         {
             if (collector == null || string.IsNullOrEmpty(collector.TargetClassName)) return;
             if (collector.Entries == null || collector.Entries.Count == 0) return;
@@ -73,7 +73,7 @@ namespace MUFramework.Editor
                 && entry.GameObject != null;
         }
 
-        private static string ResolveTargetBaseClause(UIBindingCollector collector)
+        private static string ResolveTargetBaseClause(UIAutoGenerator collector)
         {
             var targetType = ResolveTargetType(collector);
             if (targetType == null)
@@ -95,7 +95,7 @@ namespace MUFramework.Editor
             return string.Empty;
         }
 
-        private static Type ResolveTargetType(UIBindingCollector collector)
+        private static Type ResolveTargetType(UIAutoGenerator collector)
         {
             var fullName = string.IsNullOrEmpty(collector.TargetNamespace)
                 ? collector.TargetClassName

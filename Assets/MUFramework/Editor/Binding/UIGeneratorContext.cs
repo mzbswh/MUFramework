@@ -4,9 +4,9 @@ using UnityEngine;
 
 namespace MUFramework.Editor
 {
-    public sealed class UIBindingNamingContext
+    public sealed class UIGeneratorContext
     {
-        public UIBindingNamingContext(
+        public UIGeneratorContext(
             string rootGameObjectName,
             string prefabAssetPath,
             string prefabDirectory)
@@ -16,13 +16,13 @@ namespace MUFramework.Editor
             PrefabDirectory = prefabDirectory ?? string.Empty;
         }
 
-        public UIBindingCollector Collector { get; private set; }
+        public UIAutoGenerator Collector { get; private set; }
         public Transform RootTransform { get; private set; }
         public string RootGameObjectName { get; private set; }
         public string PrefabAssetPath { get; private set; }
         public string PrefabDirectory { get; private set; }
 
-        public static UIBindingNamingContext FromCollector(UIBindingCollector collector)
+        public static UIGeneratorContext FromCollector(UIAutoGenerator collector)
         {
             var rootTransform = collector != null ? collector.transform : null;
             var rootName = rootTransform != null ? rootTransform.gameObject.name : string.Empty;
@@ -31,7 +31,7 @@ namespace MUFramework.Editor
                 ? string.Empty
                 : NormalizeAssetPath(Path.GetDirectoryName(prefabAssetPath));
 
-            var context = new UIBindingNamingContext(
+            var context = new UIGeneratorContext(
                 rootName,
                 prefabAssetPath,
                 prefabDirectory);
@@ -41,7 +41,7 @@ namespace MUFramework.Editor
             return context;
         }
 
-        private static string GetPrefabAssetPath(UIBindingCollector collector)
+        private static string GetPrefabAssetPath(UIAutoGenerator collector)
         {
             if (collector == null)
             {
